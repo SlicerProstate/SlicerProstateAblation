@@ -5,9 +5,11 @@ import qt
 import vtk
 
 from ProstateCryoAblationUtil.appConfig import ConfigurationParser
+from ProstateCryoAblationUtil.constants import ProstateCryoAblationConstants
 from SliceTracker import SliceTrackerTabWidget
 from SliceTrackerUtils.session import SliceTrackerSession
 from SliceTrackerUtils.steps.base import SliceTrackerStep
+from SliceTrackerUtils.steps.overview import SliceTrackerOverviewStep
 from SliceTrackerUtils.steps.zFrameRegistration import SliceTrackerZFrameRegistrationStep
 from ProstateCryoAblationUtil.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
 
@@ -71,7 +73,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    for step in [SliceTrackerZFrameRegistrationStep,
+    for step in [SliceTrackerOverviewStep, SliceTrackerZFrameRegistrationStep,
                  ProstateCryoAblationTargetingStep]:
       self.session.registerStep(step())
 

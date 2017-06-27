@@ -1,4 +1,5 @@
 import vtk, slicer
-
+from SliceTrackerUtils.session import SliceTrackerSession
 class ProstateCryoAblationUserEvents(object):
-  InitiateTargetingEvent = vtk.vtkCommand.UserEvent + 100
+  pass
+  #InitiateTargetingEvent = SliceTrackerSession.InitiateSegmentationEvent

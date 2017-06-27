@@ -75,6 +75,9 @@ class ProstateCryoAblationTargetingStep(SliceTrackerStep):
     self.updateAvailableLayouts()
     super(ProstateCryoAblationTargetingStep, self).onActivation()
 
+  def updateAvailableLayouts(self):
+    pass
+
   def onDeactivation(self):
     super(ProstateCryoAblationTargetingStep, self).onDeactivation()
 
@@ -90,11 +93,11 @@ class ProstateCryoAblationTargetingStep(SliceTrackerStep):
 
   def setupSessionObservers(self):
     super(ProstateCryoAblationTargetingStep, self).setupSessionObservers()
-    self.session.addEventObserver(ProstateCryoAblationUserEvents.InitiateTargetingEvent, self.onInitiateTargeting)
+    self.session.addEventObserver(self.session.InitiateSegmentationEvent, self.onInitiateTargeting)
 
   def removeSessionEventObservers(self):
     super(ProstateCryoAblationTargetingStep, self).removeSessionEventObservers()
-    self.session.removeEventObserver(ProstateCryoAblationUserEvents.InitiateTargetingEvent, self.onInitiateTargeting)
+    self.session.removeEventObserver(self.session.InitiateSegmentationEvent, self.onInitiateTargeting)
 
 
   @vtk.calldata_type(vtk.VTK_STRING)

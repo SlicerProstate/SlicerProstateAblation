@@ -1,11 +1,12 @@
 import ConfigParser
 import inspect, os
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin
+from constants import ProstateCryoAblationConstants
 
 class ConfigurationParser(ModuleWidgetMixin):
 
   def __init__(self, configFile):
-    self.moduleName = "ProstateCryoAblation"
+    self.moduleName = ProstateCryoAblationConstants.MODULE_NAME
     self.configFile = configFile
     self.loadConfiguration()
 
