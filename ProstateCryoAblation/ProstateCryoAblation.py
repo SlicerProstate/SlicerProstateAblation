@@ -4,14 +4,18 @@ import logging
 import qt
 import vtk
 
-from ProstateCryoAblationUtil.appConfig import ConfigurationParser
-from ProstateCryoAblationUtil.constants import ProstateCryoAblationConstants
-from SliceTracker import SliceTrackerTabWidget
-from SliceTrackerUtils.session import SliceTrackerSession
-from SliceTrackerUtils.steps.base import SliceTrackerStep
-from SliceTrackerUtils.steps.overview import SliceTrackerOverviewStep
-from SliceTrackerUtils.steps.zFrameRegistration import SliceTrackerZFrameRegistrationStep
-from ProstateCryoAblationUtil.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
+from ProstateCryoAblationUtils.appConfig import ConfigurationParser
+from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants
+from ProstateCryoAblationUtils.steps.evaluation import ProstateCryoAblationEvaluationStep
+from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOverviewStep
+#from ProstateCryoAblation import ProstateCryoAblationTabWidget
+from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
+from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationStep
+from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOverviewStep
+from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStep
+
+from ProstateCryoAblationUtils.steps.segmentation import ProstateCryoAblationSegmentationStep
+#from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
 
 from SlicerDevelopmentToolboxUtils.buttons import *
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
@@ -28,7 +32,7 @@ class ProstateCryoAblation(ScriptedLoadableModule):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "ProstateCryoAblation"
     self.parent.categories = ["IGT"]
-    self.parent.dependencies = ["SlicerProstate", "SliceTracker", "SlicerDevelopmentToolbox"]
+    self.parent.dependencies = ["SlicerProstate", "SlicerDevelopmentToolbox"]
     self.parent.contributors = ["Longquan Chen(SPL)", "Junichi Tokuda (SPL)"]
     self.parent.helpText = """ module to support MRI-guided prostate cryoablation.
       See <a href=\"https://www.slicer.org/wiki/Modules:ProstateNav-Documentation-3.6\"> """
@@ -45,7 +49,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     ConfigurationParser(os.path.join(self.modulePath, 'Resources', "default.cfg"))
     self.logic = ProstateCryoAblationLogic()
 
-    self.session = SliceTrackerSession()
+    self.session = ProstateCryoAblationSession()
     self.session.steps = []
     self.session.removeEventObservers()
     self.session.addEventObserver(self.session.CloseCaseEvent, lambda caller, event: self.cleanup())
@@ -54,7 +58,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
 
   def enter(self):
     if not slicer.dicomDatabase:
-      slicer.util.errorDisplay("Slicer DICOMDatabase was not found. In order to be able to use SliceTracker, you will "
+      slicer.util.errorDisplay("Slicer DICOMDatabase was not found. In order to be able to use ProstateCryoAblation, you will "
                                "need to set a proper location for the Slicer DICOMDatabase.")
     self.layout.parent().enabled = slicer.dicomDatabase is not None
 
@@ -73,8 +77,8 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    for step in [SliceTrackerOverviewStep, SliceTrackerZFrameRegistrationStep,
-                 ProstateCryoAblationTargetingStep]:
+    for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep,
+                 ProstateCryoAblationSegmentationStep, ProstateCryoAblationEvaluationStep]:
       self.session.registerStep(step())
 
     self.customStatusProgressBar = CustomStatusProgressbar()
@@ -136,7 +140,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.crosshairButton.checked = False
 
   def setupTabBarNavigation(self):
-    self.tabWidget = SliceTrackerTabWidget()
+    self.tabWidget = ProstateCryoAblationTabWidget()
     self.tabWidget.addEventObserver(self.tabWidget.AvailableLayoutsChangedEvent, self.onAvailableLayoutsChanged)
     self.layout.addWidget(self.tabWidget)
     self.tabWidget.hideTabs()
@@ -173,6 +177,19 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     if not self.session.data.usePreopData and self.patientWatchBox.sourceFile is None:
       self.patientWatchBox.sourceFile = receivedFile
     self.intraopWatchBox.sourceFile = receivedFile
+    """
+    backgroundVolumeID = self.session.getOrCreateVolumeForSeries(callData).GetID() if self.session.getOrCreateVolumeForSeries(
+      callData) else None
+    registrationResult = self.session.data.getApprovedOrLastResultForSeries(callData) if self.session.data.getResult(callData) else None
+    if registrationResult:
+      approvedVolume = registrationResult.volumes.asDict().get(registrationResult.registrationType)
+      backgroundVolumeID = approvedVolume.GetID() if approvedVolume else None
+    for widget in [w for w in self.getAllVisibleWidgets() if w.sliceView().visible]:
+      compositeNode = widget.mrmlSliceCompositeNode()
+      compositeNode.SetLabelVolumeID(None)
+      compositeNode.SetForegroundVolumeID(None)
+      compositeNode.SetBackgroundVolumeID(backgroundVolumeID)
+    """
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onAvailableLayoutsChanged(self, caller, event, callData):
@@ -183,3 +200,45 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
 class ProstateCryoAblationLogic(ModuleLogicMixin):
   def __init__(self):
     pass
+
+
+class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
+
+  AvailableLayoutsChangedEvent = ProstateCryoAblationStep.AvailableLayoutsChangedEvent
+
+  def __init__(self):
+    super(ProstateCryoAblationTabWidget, self).__init__()
+    self.session = ProstateCryoAblationSession()
+    self._createTabs()
+    self.currentChanged.connect(self.onCurrentTabChanged)
+    self.onCurrentTabChanged(0)
+
+  def hideTabs(self):
+    self.tabBar().hide()
+
+  def _createTabs(self):
+    # TODO: cleanup on reload?
+    for step in self.session.steps:
+      logging.debug("Adding tab for %s step" % step.NAME)
+      self.addTab(step, step.NAME)
+      step.addEventObserver(step.ActivatedEvent, self.onStepActivated)
+      step.addEventObserver(self.AvailableLayoutsChangedEvent, self.onStepAvailableLayoutChanged)
+
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def onStepAvailableLayoutChanged(self, caller, event, callData):
+    self.invokeEvent(self.AvailableLayoutsChangedEvent, callData)
+
+  def onStepActivated(self, caller, event):
+    name = caller.GetAttribute("Name")
+    index = next((i for i, step in enumerate(self.session.steps) if step.NAME == name), None)
+    if index is not None:
+      self.setCurrentIndex(index)
+
+  @logmethod(logging.DEBUG)
+  def onCurrentTabChanged(self, index):
+    for idx, step in enumerate(self.session.steps):
+      if index != idx:
+        if step.active:
+          self.session.previousStep = step
+        step.active = False
+    self.session.steps[index].active = True

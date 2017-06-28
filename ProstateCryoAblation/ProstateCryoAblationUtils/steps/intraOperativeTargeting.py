@@ -3,7 +3,10 @@ import ast
 import qt
 import slicer
 import vtk
+import SliceTracker
 from ..UserEvents import ProstateCryoAblationUserEvents
+from ..constants import ProstateCryoAblationConstants
+from SliceTracker import SliceTrackerWidget
 from SliceTrackerUtils.steps.base import SliceTrackerLogicBase, SliceTrackerStep
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
@@ -23,6 +26,11 @@ class ProstateCryoAblationTargetingStep(SliceTrackerStep):
 
   def __init__(self):
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
+    iconPathDir = os.path.dirname(slicer.util.modulePath(ProstateCryoAblationConstants.INHERITED_MODULE_NAME))
+    self.finishStepIcon = self.createIcon('icon-start.png',
+                                          os.path.join(iconPathDir, 'Resources/Icons'))
+    self.backIcon = self.createIcon('icon-back.png',
+                                    os.path.join(iconPathDir, 'Resources/Icons'))
     super(ProstateCryoAblationTargetingStep, self).__init__()
     self.resetAndInitialize()
 
@@ -32,6 +40,7 @@ class ProstateCryoAblationTargetingStep(SliceTrackerStep):
   def setup(self):
     super(ProstateCryoAblationTargetingStep, self).setup()
     self.setupTargetingPlugin()
+    self.setupNavigationButtons()
 
   def setupTargetingPlugin(self):
     self.targetingPlugin = SliceTrackerTargetingPlugin()
@@ -40,8 +49,44 @@ class ProstateCryoAblationTargetingStep(SliceTrackerStep):
     self.addPlugin(self.targetingPlugin)
     self.layout().addWidget(self.targetingPlugin)
 
+  def setupNavigationButtons(self):
+    iconSize = qt.QSize(36, 36)
+    self.backButton = self.createButton("", icon=self.backIcon, iconSize=iconSize,
+                                        toolTip="Return to last step")
+    self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
+                                              toolTip="Confirm the targeting")
+    self.finishStepButton.setFixedHeight(45)
+    self.layout().addWidget(self.createHLayout([self.backButton, self.finishStepButton]))
+
+  def onBackButtonClicked(self):
+    if self.session.retryMode:
+      self.session.retryMode = False
+    if self.session.previousStep:
+      self.session.previousStep.active = True
+
+  def onFinishStepButtonClicked(self):
+    if not self.session.data.usePreopData and not self.session.retryMode:
+      self.createCoverProstateRegistrationResultManually()
+    else:
+      self.session.onInvokeRegistration(initial=True, retryMode=self.session.retryMode)
+
+  def createCoverProstateRegistrationResultManually(self):
+    fixedVolume = self.session.currentSeriesVolume
+    result = self.session.generateNameAndCreateRegistrationResult(fixedVolume)
+    approvedRegistrationType = "rigid" # when no preop image available, we set the first registration result to rigid type
+    result.targets.original = self.session.movingTargets
+    targetName = str(result.seriesNumber) + '-TARGETS-' + approvedRegistrationType + result.suffix
+    clone = self.logic.cloneFiducials(self.session.movingTargets, targetName)
+    self.session.applyDefaultTargetDisplayNode(clone)
+    result.setTargets(approvedRegistrationType, clone)
+    result.volumes.fixed = fixedVolume
+    result.labels.fixed = self.session.fixedLabel
+    result.approve(approvedRegistrationType)
+
   def setupConnections(self):
     super(ProstateCryoAblationTargetingStep, self).setupConnections()
+    self.backButton.clicked.connect(self.onBackButtonClicked)
+    self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onInitiateTargeting(self, caller, event, callData):
@@ -117,12 +162,12 @@ class ProstateCryoAblationTargetingStep(SliceTrackerStep):
           self.onActivation()
           return
 
-  def inputsAreSet(self):
-    return self.session.fixedVolume is not None and self.session.fixedLabel is not None \
-             and self.session.movingTargets is not None
 
   def onTargetingStarted(self, caller, event):
+    self.backButton.enabled = False
     pass
 
   def onTargetingFinished(self, caller, event):
+    self.finishStepButton.enabled = True
+    self.backButton.enabled = True
     pass
