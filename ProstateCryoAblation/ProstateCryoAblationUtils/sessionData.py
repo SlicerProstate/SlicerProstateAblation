@@ -60,7 +60,6 @@ class SessionData(ModuleLogicMixin):
 
     self.completed = False
     self.usePreopData = False
-    self.biasCorrectionDone = False
 
     self.clippingModelNode = None
     self.inputMarkupNode = None
@@ -71,19 +70,19 @@ class SessionData(ModuleLogicMixin):
     self.initialTargetsPath = None
 
     self.zFrameRegistrationResult = None
-
+    self.registrationResults = OrderedDict()
     self._savedRegistrationResults = []
-    self.initializeRegistrationResults()
 
     self.customProgressBar = CustomStatusProgressbar()
-
-  def initializeRegistrationResults(self):
-    self.registrationResults = OrderedDict()
+    
 
   def createZFrameRegistrationResult(self, series):
     self.zFrameRegistrationResult = ZFrameRegistrationResult(series)
     return self.zFrameRegistrationResult
-
+  
+  def getResultsAsList(self):
+    return self.registrationResults.values()
+  
   def createResult(self, series, invokeEvent=True):
     assert series not in self.registrationResults.keys()
     self.registrationResults[series] = RegistrationResult(series)
@@ -114,7 +113,6 @@ class SessionData(ModuleLogicMixin):
       self.readProcedureEvents(data["procedureEvents"])
 
       self.usePreopData = data["usedPreopData"]
-      self.biasCorrectionDone = data["biasCorrected"]
 
       if "initialTargets" in data.keys():
         self.initialTargets = self._loadOrGetFileData(directory,
@@ -136,7 +134,6 @@ class SessionData(ModuleLogicMixin):
         self.initialVolume = self._loadOrGetFileData(directory, data["initialVolume"], slicer.util.loadVolume)
 
       self.loadResults(data, directory)
-    self.registrationResults = OrderedDict(sorted(self.registrationResults.items()))  # TODO: sort here?
     return True
 
   def loadResults(self, data, directory):
@@ -245,7 +242,6 @@ class SessionData(ModuleLogicMixin):
 
     data = {
       "usedPreopData": self.usePreopData,
-      "biasCorrected": self.biasCorrectionDone,
       "results": createResultsList()
     }
 
@@ -282,115 +278,27 @@ class SessionData(ModuleLogicMixin):
     self.printOutput("The following data was successfully saved:\n", successfullySavedFileNames)
     self.printOutput("The following data failed to saved:\n", failedSaveOfFileNames)
     return (len(failedSaveOfFileNames) == 0, failedSaveOfFileNames)
-
+  
+  def saveRegistrationResults(self, outputDir):
+      failedToSave = []
+      self.customProgressBar.visible = True
+      for index, result in enumerate(self.getResultsAsList(), start=1):
+        self.customProgressBar.maximum = len(self.registrationResults)
+        self.customProgressBar.updateStatus("Saving registration result for series %s" % result.name, index)
+        slicer.app.processEvents()
+        if result not in self._savedRegistrationResults:
+          successfulList, failedList = result.save(outputDir)
+          failedToSave += failedList
+          self._savedRegistrationResults.append(result)
+      self.customProgressBar.text = "Registration data successfully saved" if len(failedToSave) == 0 else "Error/s occurred during saving"
+      return failedToSave
+    
   def printOutput(self, message, fileNames):
     if not len(fileNames):
       return
     for fileName in fileNames:
       message += fileName + "\n"
     logging.debug(message)
-
-  @logmethod(level=logging.INFO)
-  def saveRegistrationResults(self, outputDir):
-    failedToSave = []
-    self.customProgressBar.visible = True
-    for index, result in enumerate(self.getResultsAsList(), start=1):
-      self.customProgressBar.maximum = len(self.registrationResults)
-      self.customProgressBar.updateStatus("Saving registration result for series %s" % result.name, index)
-      slicer.app.processEvents()
-      print self._savedRegistrationResults
-      if result not in self._savedRegistrationResults:
-        successfulList, failedList = result.save(outputDir)
-        failedToSave += failedList
-        self._savedRegistrationResults.append(result)
-    self.customProgressBar.text = "Registration data successfully saved" if len(failedToSave) == 0 else "Error/s occurred during saving"
-    return failedToSave
-
-  def _registrationResultHasStatus(self, series, status, method=all):
-    if not type(series) is int:
-      series = RegistrationResult.getSeriesNumberFromString(series)
-    results = self.getResultsBySeriesNumber(series)
-    return method(result.status == status for result in results) if len(results) else False
-
-  def registrationResultWasApproved(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.APPROVED_STATUS, method=any)
-
-  def registrationResultWasSkipped(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.SKIPPED_STATUS)
-
-  def registrationResultWasRejected(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.REJECTED_STATUS)
-
-  def registrationResultWasApprovedOrRejected(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.REJECTED_STATUS) or \
-           self._registrationResultHasStatus(series, RegistrationStatus.APPROVED_STATUS)
-
-  def getResultsAsList(self):
-    return self.registrationResults.values()
-
-  def getMostRecentApprovedCoverProstateRegistration(self):
-    seriesTypeManager = SeriesTypeManager()
-    for result in self.registrationResults.values():
-      if seriesTypeManager.isCoverProstate(result.name) and result.approved:
-        return result
-    return None
-
-  def getLastApprovedRigidTransformation(self):
-    if sum([1 for result in self.registrationResults.values() if result.approved]) == 1:
-      lastRigidTfm = None
-    else:
-      lastRigidTfm = self.getMostRecentApprovedResult().transforms.rigid
-    if not lastRigidTfm:
-      lastRigidTfm = slicer.vtkMRMLLinearTransformNode()
-      slicer.mrmlScene.AddNode(lastRigidTfm)
-    return lastRigidTfm
-
-  @onExceptionReturnNone
-  def getMostRecentApprovedTransform(self):
-    seriesTypeManager = SeriesTypeManager()
-    results = sorted(self.registrationResults.values(), key=lambda s: s.seriesNumber)
-    for result in reversed(results):
-      if result.approved and not seriesTypeManager.isCoverProstate(result.name):
-        return result.getTransform(result.registrationType)
-    return None
-
-  @onExceptionReturnNone
-  def getResult(self, series):
-    return self.registrationResults[series]
-
-  def getResultsBySeries(self, series):
-    seriesNumber = RegistrationResult.getSeriesNumberFromString(series)
-    return self.getResultsBySeriesNumber(seriesNumber)
-
-  def getResultsBySeriesNumber(self, seriesNumber):
-    return [result for result in self.getResultsAsList() if seriesNumber == result.seriesNumber]
-
-  def removeResult(self, series):
-    # TODO: is this method ever used?
-    try:
-      del self.registrationResults[series]
-    except KeyError:
-      pass
-
-  def exists(self, series):
-    return series in self.registrationResults.keys()
-
-  @onExceptionReturnNone
-  def getMostRecentApprovedResult(self, priorToSeriesNumber=None):
-    results = sorted(self.registrationResults.values(), key=lambda s: s.seriesNumber)
-    if priorToSeriesNumber:
-      results = [result for result in results if result.seriesNumber < priorToSeriesNumber]
-    for result in reversed(results):
-      if result.approved:
-        return result
-    return None
-
-  def getApprovedOrLastResultForSeries(self, series):
-    results = self.getResultsBySeries(series)
-    for result in results:
-      if result.approved:
-        return result
-    return results[-1]
 
 
 class AbstractRegistrationData(ModuleLogicMixin):
@@ -453,7 +361,7 @@ class RegistrationTypeData(AbstractRegistrationData):
   def asDict(self):
     return {'rigid': self.rigid, 'affine': self.affine, 'bSpline': self.bSpline}
 
-
+  
 class Transforms(RegistrationTypeData):
 
   FILE_EXTENSION = FileExtension.H5
@@ -575,6 +483,14 @@ class RegistrationStatus(ModuleLogicMixin):
     self.invokeEvent(self.StatusEvents[value])
 
   @property
+  def timestamp(self):
+    return self._timestamp
+  
+  @timestamp.setter
+  def timestamp(self, value):
+    self._timestamp = value
+  
+  @property
   def approved(self):
     return self.hasStatus(self.APPROVED_STATUS)
 
@@ -588,6 +504,7 @@ class RegistrationStatus(ModuleLogicMixin):
 
   def __init__(self):
     self._status = self.UNDEFINED_STATUS
+    self._timestamp = self.getTime()
 
   def hasStatus(self, status):
     return self.status == status

@@ -12,7 +12,7 @@ from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS, FileExtension, ST
 from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
 from SlicerDevelopmentToolboxUtils.helpers import SmartDICOMReceiver
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin
-from SlicerDevelopmentToolboxUtils.widgets import IncomingDataWindow
+from SlicerDevelopmentToolboxUtils.widgets import IncomingDataWindow, CustomStatusProgressbar
 from SlicerDevelopmentToolboxUtils.decorators import logmethod, singleton
 from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse, onReturnProcessEvents, onExceptionReturnNone
 from SlicerDevelopmentToolboxUtils.module.session import StepBasedSession
@@ -24,14 +24,14 @@ from SliceTrackerRegistration import SliceTrackerRegistrationLogic
 @singleton
 class ProstateCryoAblationSession(StepBasedSession):
 
-  IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent
-  IncomingPreopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent + 110
+  IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.SkippedEvent
+  IncomingPreopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 110
 
-  IncomingIntraopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent + 111
+  IncomingIntraopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 111
   NewImageSeriesReceivedEvent = SlicerDevelopmentToolboxEvents.NewImageDataReceivedEvent
 
   DICOMReceiverStatusChanged = SlicerDevelopmentToolboxEvents.StatusChangedEvent
-  DICOMReceiverStoppedEvent = SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent
+  DICOMReceiverStoppedEvent = SlicerDevelopmentToolboxEvents.StoppedEvent
 
   ZFrameRegistrationSuccessfulEvent = vtk.vtkCommand.UserEvent + 140
   PreprocessingSuccessfulEvent = vtk.vtkCommand.UserEvent + 141
@@ -43,7 +43,7 @@ class ProstateCryoAblationSession(StepBasedSession):
   RegistrationStatusChangedEvent = vtk.vtkCommand.UserEvent + 152
 
   InitiateZFrameCalibrationEvent = vtk.vtkCommand.UserEvent + 160
-  InitiateSegmentationEvent = vtk.vtkCommand.UserEvent + 161
+  InitiateTargetingEvent = vtk.vtkCommand.UserEvent + 161
   InitiateRegistrationEvent = vtk.vtkCommand.UserEvent + 162
   InitiateEvaluationEvent = vtk.vtkCommand.UserEvent + 163
 
@@ -115,9 +115,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self.currentResult is not None:
       self.currentResult.removeEventObservers()
     self._currentResult = series
-    if self.currentResult:
-      for event in RegistrationResult.StatusEvents.values():
-        self.currentResult.addEventObserver(event, self.onRegistrationResultStatusChanged)
+    self.save()
     self.invokeEvent(self.CurrentResultChangedEvent)
 
   @property
@@ -207,13 +205,13 @@ class ProstateCryoAblationSession(StepBasedSession):
                                             lambda caller, event: self.invokeEvent(self.SeriesTypeManuallyAssignedEvent))
 
     self.resetAndInitializeMembers()
-
+  
   def resetAndInitializeMembers(self):
     self.seriesTypeManager.clear()
     self.initializeColorNodes()
     self.directory = None
     self.data = SessionData()
-    self.data.addEventObserver(self.data.NewResultCreatedEvent, self.onNewRegistrationResultCreated)
+    self.data.addEventObserver(self.data.NewResultCreatedEvent, self.onNewResultCreated)
     self.trainingMode = False
     self.resetPreopDICOMReceiver()
     self.resetIntraopDICOMReceiver()
@@ -241,6 +239,10 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def onMrmlSceneCleared(self, caller, event):
     self.initializeColorNodes()
+  
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def onNewResultCreated(self, caller, event, callData):
+    self.currentResult = callData  
 
   @onExceptionReturnFalse
   def isCurrentSeriesCoverProstateInNonPreopMode(self):
@@ -335,11 +337,11 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.resetPreopDICOMReceiver()
     self.preopDICOMReceiver = IncomingDataWindow(incomingDataDirectory=self.preopDICOMDirectory,
                                                  skipText="No preoperative images available")
-    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent,
+    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.SkippedEvent,
                                              self.onSkippingPreopDataReception)
-    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.IncomingDataCanceledEvent,
+    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.CanceledEvent,
                                              lambda caller, event: self.close())
-    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent,
+    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.FinishedEvent,
                                              self.onPreopDataReceptionFinished)
     self.preopDICOMReceiver.show()
 
@@ -369,7 +371,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       self._observeIntraopDICOMReceiverEvents()
       self.intraopDICOMReceiver.start(not (self.trainingMode or self.data.completed))
     else:
-      self.invokeEvent(SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent)
+      self.invokeEvent(SlicerDevelopmentToolboxEvents.StoppedEvent)
     self.importDICOMSeries(self.getFileList(self.intraopDICOMDirectory))
     if self.intraopDICOMReceiver:
       self.intraopDICOMReceiver.forceStatusChangeEventUpdate()
@@ -383,14 +385,15 @@ class ProstateCryoAblationSession(StepBasedSession):
   def _observeIntraopDICOMReceiverEvents(self):
     self.intraopDICOMReceiver.addEventObserver(self.intraopDICOMReceiver.IncomingDataReceiveFinishedEvent,
                                                self.onDICOMSeriesReceived)
-    # self.intraopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.StatusChangedEvent,
-    #                                            self.onDICOMReceiverStatusChanged)
-    # self.intraopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent,
-    #                                            self.onSmartDICOMReceiverStopped)
+    self.intraopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.StatusChangedEvent,
+                                               self.onDICOMReceiverStatusChanged)
 
-    # self.logic.addEventObserver(SlicerDevelopmentToolboxEvents.StatusChangedEvent, self.onDICOMReceiverStatusChanged)
-    # self.logic.addEventObserver(SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent, self.onIntraopDICOMReceiverStopped)
-
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def onDICOMReceiverStatusChanged(self, caller, event, callData):
+    customStatusProgressBar = CustomStatusProgressbar()
+    customStatusProgressBar.text = callData
+    if "Waiting" in callData:
+      customStatusProgressBar.busy = True
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onDICOMSeriesReceived(self, caller, event, callData):
@@ -693,34 +696,8 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self.data.completed:
       logging.debug("No tracking possible. Case has been marked as completed!")
       return False
-    if self.isInGeneralTrackable(series) and self.resultHasNotBeenProcessed(series):
-      if self.seriesTypeManager.isGuidance(series):
-        return self.data.getMostRecentApprovedCoverProstateRegistration()
-      elif self.seriesTypeManager.isCoverProstate(series):
-        return self.zFrameRegistrationSuccessful
-      elif self.isCoverTemplateTrackable(series):
-        return True
-    return False
-
-  def isCoverTemplateTrackable(self, series):
-    if not self.seriesTypeManager.isCoverTemplate(series):
-      return False
-    if not self.approvedCoverTemplate:
+    else:
       return True
-    currentSeriesNumber = RegistrationResult.getSeriesNumberFromString(series)
-    vName = self.approvedCoverTemplate.GetName()
-    approvedSeriesNumber = int(vName.split(":" if vName.find(":") > -1 else "-")[0])
-    return currentSeriesNumber > approvedSeriesNumber
-
-  def isInGeneralTrackable(self, series):
-    seriesType = self.seriesTypeManager.getSeriesType(series)
-    return self.isAnyListItemInString(seriesType, [self.getSetting("COVER_TEMPLATE"), self.getSetting("COVER_PROSTATE"),
-                                                   self.getSetting("NEEDLE_IMAGE")])
-
-  def resultHasNotBeenProcessed(self, series):
-    return not (self.data.registrationResultWasApproved(series) or
-                self.data.registrationResultWasSkipped(series) or
-                self.data.registrationResultWasRejected(series))
 
   def isEligibleForSkipping(self, series):
     seriesType = self.seriesTypeManager.getSeriesType(series)
@@ -734,37 +711,19 @@ class ProstateCryoAblationSession(StepBasedSession):
     event = None
     callData = None
     if self.seriesTypeManager.isCoverProstate(self.currentSeries):
-      event = self.InitiateSegmentationEvent
+      event = self.InitiateTargetingEvent
       callData = str(False)
     elif self.seriesTypeManager.isCoverTemplate(self.currentSeries):
       event = self.InitiateZFrameCalibrationEvent
-    elif self.seriesTypeManager.isGuidance(self.currentSeries):
-      self.onInvokeRegistration(initial=False)
-      return
     if event:
       self.invokeEvent(event, callData)
     else:
       raise UnknownSeriesError("Action for currently selected series unknown")
-
-  def retryRegistration(self):
-    self.invokeEvent(self.InitiateSegmentationEvent, str(True))
-
-  def getRegistrationResultNameAndGeneratedSuffix(self, name):
-    nOccurrences = sum([1 for result in self.data.getResultsAsList() if name in result.name])
-    suffix = ""
-    if nOccurrences:
-      suffix = "_Retry_" + str(nOccurrences)
-    return name, suffix
-
-  def onInvokeRegistration(self, initial=True, retryMode=False):
-    self.progress = slicer.util.createProgressDialog(maximum=4, value=1)
-    if initial:
-      self.applyInitialRegistration(retryMode, progressCallback=self.updateProgressBar)
-    else:
-      self.applyRegistration(progressCallback=self.updateProgressBar)
-    self.progress.close()
-    self.progress = None
-    logging.debug('Re-Registration is done')
+  
+  def generateNameAndCreateRegistrationResult(self, fixedVolume):
+    result = self.data.createResult(fixedVolume.GetName())
+    #self.registrationLogic.registrationResult = result
+    return result  
 
   @onReturnProcessEvents
   def updateProgressBar(self, **kwargs):
@@ -773,93 +732,12 @@ class ProstateCryoAblationSession(StepBasedSession):
         if hasattr(self.progress, key):
           setattr(self.progress, key, value)
 
-  def generateNameAndCreateRegistrationResult(self, fixedVolume):
-    name, suffix = self.getRegistrationResultNameAndGeneratedSuffix(fixedVolume.GetName())
-    result = self.data.createResult(name + suffix)
-    result.suffix = suffix
-    self.registrationLogic.registrationResult = result
-    return result
-
-  def applyInitialRegistration(self, retryMode, progressCallback=None):
-    if not retryMode:
-      self.data.initializeRegistrationResults()
-
-    self.runBRAINSResample(inputVolume=self.fixedLabel, referenceVolume=self.fixedVolume,
-                           outputVolume=self.fixedLabel)
-    self._runRegistration(self.fixedVolume, self.fixedLabel, self.movingVolume,
-                          self.movingLabel, self.movingTargets, progressCallback)
-
-  def applyRegistration(self, progressCallback=None):
-
-    coverProstateRegResult = self.data.getMostRecentApprovedCoverProstateRegistration()
-    lastRigidTfm = self.data.getLastApprovedRigidTransformation()
-    lastApprovedTfm = self.data.getMostRecentApprovedTransform()
-    initialTransform = lastApprovedTfm if lastApprovedTfm else lastRigidTfm
-
-
-    fixedLabel = self.volumesLogic.CreateAndAddLabelVolume(slicer.mrmlScene, self.currentSeriesVolume,
-                                                           self.currentSeriesVolume.GetName() + '-label')
-
-    self.runBRAINSResample(inputVolume=coverProstateRegResult.labels.fixed, referenceVolume=self.currentSeriesVolume,
-                           outputVolume=fixedLabel, warpTransform=initialTransform)
-
-    self.dilateMask(fixedLabel, dilateValue=self.segmentedLabelValue)
-    self._runRegistration(self.currentSeriesVolume, fixedLabel, coverProstateRegResult.volumes.fixed,
-                         coverProstateRegResult.labels.fixed, coverProstateRegResult.targets.approved, progressCallback)
-
-  def _runRegistration(self, fixedVolume, fixedLabel, movingVolume, movingLabel, targets, progressCallback):
-    result = self.generateNameAndCreateRegistrationResult(fixedVolume)
-    parameterNode = slicer.vtkMRMLScriptedModuleNode()
-    parameterNode.SetAttribute('FixedImageNodeID', fixedVolume.GetID())
-    parameterNode.SetAttribute('FixedLabelNodeID', fixedLabel.GetID())
-    parameterNode.SetAttribute('MovingImageNodeID', movingVolume.GetID())
-    parameterNode.SetAttribute('MovingLabelNodeID', movingLabel.GetID())
-    parameterNode.SetAttribute('TargetsNodeID', targets.GetID())
-    self.registrationLogic.run(parameterNode, progressCallback=progressCallback)
-    self.addTargetsToMrmlScene(result)
-    self.invokeEvent(self.InitiateEvaluationEvent)
-
+  
   def addTargetsToMrmlScene(self, result):
     targetNodes = result.targets.asDict()
     for regType in RegistrationTypeData.RegistrationTypes:
       if targetNodes[regType]:
         slicer.mrmlScene.AddNode(targetNodes[regType])
-
-  def runBRAINSResample(self, inputVolume, referenceVolume, outputVolume, warpTransform=None):
-
-    params = {'inputVolume': inputVolume, 'referenceVolume': referenceVolume, 'outputVolume': outputVolume,
-              'interpolationMode': 'NearestNeighbor', 'pixelType':'short'}
-    if warpTransform:
-      params['warpTransform'] = warpTransform
-
-    logging.debug('About to run BRAINSResample CLI with those params: %s' % params)
-    slicer.cli.run(slicer.modules.brainsresample, None, params, wait_for_completion=True)
-    logging.debug('resample labelmap through')
-    slicer.mrmlScene.AddNode(outputVolume)
-
-  @logmethod(logging.INFO)
-  def onRegistrationResultStatusChanged(self, caller, event):
-    self.skipAllUnregisteredPreviousSeries(self.currentResult.name)
-    self._loading = getattr(self, "_loading", None)
-    if self._loading:
-      return
-    self.save()
-    self.invokeEvent(self.RegistrationStatusChangedEvent)
-
-  @vtk.calldata_type(vtk.VTK_STRING)
-  def onNewRegistrationResultCreated(self, caller, event, callData):
-    self.currentResult = callData
-
-  def skipAllUnregisteredPreviousSeries(self, series):
-    selectedSeriesNumber = RegistrationResult.getSeriesNumberFromString(series)
-    for series in [series for series in self.seriesList if not self.seriesTypeManager.isCoverTemplate(series)]:
-      currentSeriesNumber = RegistrationResult.getSeriesNumberFromString(series)
-      if currentSeriesNumber < selectedSeriesNumber and self.isTrackingPossible(series):
-        results = self.data.getResultsBySeriesNumber(currentSeriesNumber)
-        if len(results) == 0:
-          self.skipSeries(series)
-      elif currentSeriesNumber >= selectedSeriesNumber:
-        break
 
   def skipSeries(self, series):
     volume = self.getOrCreateVolumeForSeries(series)
@@ -869,6 +747,5 @@ class ProstateCryoAblationSession(StepBasedSession):
     result.skip()
 
   def skip(self, series):
-    self.skipAllUnregisteredPreviousSeries(series)
     self.skipSeries(series)
     self.save()

@@ -6,18 +6,17 @@ import vtk
 
 from ProstateCryoAblationUtils.appConfig import ConfigurationParser
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants
-from ProstateCryoAblationUtils.steps.evaluation import ProstateCryoAblationEvaluationStep
 from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOverviewStep
 #from ProstateCryoAblation import ProstateCryoAblationTabWidget
 from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
 from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationStep
 from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOverviewStep
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStep
-
-from ProstateCryoAblationUtils.steps.segmentation import ProstateCryoAblationSegmentationStep
+from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
 #from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
 
 from SlicerDevelopmentToolboxUtils.buttons import *
+from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
 from SlicerDevelopmentToolboxUtils.decorators import logmethod
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
@@ -55,6 +54,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.session.addEventObserver(self.session.CloseCaseEvent, lambda caller, event: self.cleanup())
     self.session.addEventObserver(SlicerDevelopmentToolboxEvents.NewFileIndexedEvent, self.onNewFileIndexed)
     self.demoMode = False
+    self.developerMode = True
 
   def enter(self):
     if not slicer.dicomDatabase:
@@ -77,8 +77,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep,
-                 ProstateCryoAblationSegmentationStep, ProstateCryoAblationEvaluationStep]:
+    for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep, ProstateCryoAblationTargetingStep]:
       self.session.registerStep(step())
 
     self.customStatusProgressBar = CustomStatusProgressbar()
@@ -122,17 +121,16 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.wlEffectsToolButton = WindowLevelEffectsButton()
     self.settingsButton = ModuleSettingsButton(self.moduleName)
     self.showAnnotationsButton = self.createButton("", icon=self.textInfoIcon, iconSize=iconSize, checkable=True, toolTip="Display annotations", checked=True)
-
-    viewSettingButtons = [self.redOnlyLayoutButton, self.sideBySideLayoutButton, self.fourUpLayoutButton,
+    viewSettingButtons = [self.redOnlyLayoutButton, self.fourUpLayoutButton,
                           self.crosshairButton,   self.wlEffectsToolButton, self.settingsButton]
-
+    
     for step in self.session.steps:
       viewSettingButtons += step.viewSettingButtons
-
+      
     self.layout.addWidget(self.createHLayout(viewSettingButtons))
 
     self.resetViewSettingButtons()
-
+  
   def resetViewSettingButtons(self):
     for step in self.session.steps:
       step.resetViewSettingButtons()
@@ -147,7 +145,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
 
   def setupConnections(self):
     self.showAnnotationsButton.connect('toggled(bool)', self.onShowAnnotationsToggled)
-
+    
   def setupSessionObservers(self):
     self.session.addEventObserver(self.session.PreprocessingSuccessfulEvent, self.onSuccessfulPreProcessing)
     self.session.addEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
@@ -217,7 +215,6 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
     self.tabBar().hide()
 
   def _createTabs(self):
-    # TODO: cleanup on reload?
     for step in self.session.steps:
       logging.debug("Adding tab for %s step" % step.NAME)
       self.addTab(step, step.NAME)

@@ -6,7 +6,7 @@ from ...constants import ProstateCryoAblationConstants as constants
 from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStepLogic
 from ...session import ProstateCryoAblationSession
-
+from ProstateCryoAblationUtils.helpers import SeriesTypeManager
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.decorators import logmethod, onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
@@ -321,7 +321,12 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if not targets:
       self.targetTableModel.coverProstateTargetList = None
     else:
-      coverProstate = self.session.data.getMostRecentApprovedCoverProstateRegistration()
+      seriesTypeManager = SeriesTypeManager()
+      coverProstate = None
+      for tempResult in self.session.data.registrationResults.values():
+        if seriesTypeManager.isCoverProstate(tempResult.name) :
+          result = tempResult
+          break
       if coverProstate:
         self.targetTableModel.coverProstateTargetList = coverProstate.targets.approved
     self.targetTable.enabled = targets is not None

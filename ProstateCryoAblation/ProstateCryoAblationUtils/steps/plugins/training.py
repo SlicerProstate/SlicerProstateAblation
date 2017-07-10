@@ -27,16 +27,13 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
     self.collapsibleTrainingArea.collapsed = True
     self.collapsibleTrainingArea.text = "Training Incoming Data Simulation"
 
-    self.simulatePreopPhaseButton = self.createButton("Simulate preop reception", enabled=False)
-    self.simulateIntraopPhaseButton = self.createButton("Simulate intraop reception", enabled=False)
+    self.simulateIntraopPhaseButton = self.createButton("Simulate intraop reception", enabled=True)
 
     self.trainingsAreaLayout = qt.QGridLayout(self.collapsibleTrainingArea)
-    self.trainingsAreaLayout.addWidget(self.createHLayout([self.simulatePreopPhaseButton,
-                                                           self.simulateIntraopPhaseButton]))
+    self.trainingsAreaLayout.addWidget(self.createHLayout([self.simulateIntraopPhaseButton]))
     self.layout().addWidget(self.collapsibleTrainingArea)
 
   def setupConnections(self):
-    self.simulatePreopPhaseButton.clicked.connect(self.startPreopPhaseSimulation)
     self.simulateIntraopPhaseButton.clicked.connect(self.startIntraopPhaseSimulation)
 
   def setupSessionObservers(self):
@@ -47,29 +44,20 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
     super(ProstateCryoAblationTrainingPlugin, self).removeSessionEventObservers()
     self.session.removeEventObserver(self.session.IncomingDataSkippedEvent, self.onIncomingDataSkipped)
 
-  def startPreopPhaseSimulation(self):
-    self.session.trainingMode = True
-    if self.session.preopDICOMReceiver.dicomReceiver.isRunning():
-      self.session.preopDICOMReceiver.dicomReceiver.stopStoreSCP()
-    self.simulatePreopPhaseButton.enabled = False
-    preopZipFile = self.initiateSampleDataDownload(ProstateCryoAblationConstants.PREOP_SAMPLE_DATA_URL)
-    if not self.sampleDownloader.wasCanceled and preopZipFile:
-      self.unzipFileAndCopyToDirectory(preopZipFile, self.session.preopDICOMDirectory)
-
   def startIntraopPhaseSimulation(self):
-    self.simulateIntraopPhaseButton.enabled = False
+    self.simulateIntraopPhaseButton.enabled = True
     intraopZipFile = self.initiateSampleDataDownload(ProstateCryoAblationConstants.INTRAOP_SAMPLE_DATA_URL)
-    if not self.sampleDownloader.wasCanceled and intraopZipFile:
+    if not self.sampleDownloader.wasCanceled() and intraopZipFile:
       self.unzipFileAndCopyToDirectory(intraopZipFile, self.session.intraopDICOMDirectory)
 
   def initiateSampleDataDownload(self, url):
     filename = os.path.basename(url)
     self.sampleDownloader.resetAndInitialize()
-    self.sampleDownloader.addEventObserver(self.sampleDownloader.EVENTS['status_changed'], self.onDownloadProgressUpdated)
+    self.sampleDownloader.addEventObserver(self.sampleDownloader.StatusChangedEvent, self.onDownloadProgressUpdated)
     # self.customStatusProgressBar.show()
     downloadedFile = self.sampleDownloader.downloadFileIntoCache(url, filename)
     # self.customStatusProgressBar.hide()
-    return None if self.sampleDownloader.wasCanceled else downloadedFile
+    return None if self.sampleDownloader.wasCanceled() else downloadedFile
 
   @onReturnProcessEvents
   @vtk.calldata_type(vtk.VTK_STRING)
@@ -104,17 +92,11 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
       else:
         shutil.copy(current, destination)
 
-  @logmethod(logging.INFO)
-  def onNewCaseStarted(self, caller, event):
-    self.simulatePreopPhaseButton.enabled = True
-
   def onIncomingDataSkipped(self, caller, event):
-    self.simulatePreopPhaseButton.enabled = False
     self.simulateIntraopPhaseButton.enabled = True
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onCaseClosed(self, caller, event, callData):
-    self.simulatePreopPhaseButton.enabled = False
     self.simulateIntraopPhaseButton.enabled = False
 
   def onPreprocessingSuccessful(self, caller, event):

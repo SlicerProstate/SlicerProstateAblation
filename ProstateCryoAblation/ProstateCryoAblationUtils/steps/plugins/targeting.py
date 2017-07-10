@@ -27,8 +27,8 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.targetingGroupBox.setLayout(self.targetingGroupBoxLayout)
     self.fiducialsWidget = TargetCreationWidget(DEFAULT_FIDUCIAL_LIST_NAME="IntraopTargets",
                                                 ICON_SIZE=qt.QSize(36, 36))
-    self.fiducialsWidget.addEventObserver(self.fiducialsWidget.TargetingStartedEvent, self.onTargetingStarted)
-    self.fiducialsWidget.addEventObserver(self.fiducialsWidget.TargetingFinishedEvent, self.onTargetingFinished)
+    self.fiducialsWidget.addEventObserver(self.fiducialsWidget.StartedEvent, self.onTargetingStarted)
+    self.fiducialsWidget.addEventObserver(self.fiducialsWidget.FinishedEvent, self.onTargetingFinished)
     self.targetingGroupBoxLayout.addRow(self.targetTablePlugin)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget.buttons)

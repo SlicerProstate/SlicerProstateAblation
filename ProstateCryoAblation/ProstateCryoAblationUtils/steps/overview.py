@@ -12,7 +12,7 @@ from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar
 from base import ProstateCryoAblationLogicBase, ProstateCryoAblationStep
 from ProstateCryoAblationUtils.steps.plugins.case import ProstateCryoAblationCaseManagerPlugin
 from ProstateCryoAblationUtils.steps.plugins.results import ProstateCryoAblationRegistrationResultsPlugin
-from ProstateCryoAblationUtils.steps.plugins.targets import ProstateCryoAblationTargetTablePlugin
+from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
 from ProstateCryoAblationUtils.steps.plugins.training import ProstateCryoAblationTrainingPlugin
 from ..constants import ProstateCryoAblationConstants as constants
 from ..sessionData import RegistrationResult
@@ -75,8 +75,9 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
     self.setupRegistrationResultsPlugin()
 
-    self.targetTablePlugin = ProstateCryoAblationTargetTablePlugin()
+    self.targetTablePlugin = ProstateCryoAblationTargetingPlugin()
     self.addPlugin(self.targetTablePlugin)
+    self.targetTablePlugin.currentTargets = self.session.movingTargets
 
     self.layout().addWidget(self.caseManagerPlugin, 0, 0)
     self.layout().addWidget(self.trainingPlugin, 1, 0)
@@ -113,20 +114,14 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.trackTargetsButton.clicked.connect(self.onTrackTargetsButtonClicked)
     self.intraopSeriesSelector.connect('currentIndexChanged(QString)', self.onIntraopSeriesSelectionChanged)
 
-  def setupSessionObservers(self):
-    super(ProstateCryoAblationOverviewStep, self).setupSessionObservers()
-    self.session.addEventObserver(self.session.IncomingPreopDataReceiveFinishedEvent, self.onPreopReceptionFinished)
+  def addSessionObservers(self):
+    super(ProstateCryoAblationOverviewStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.SeriesTypeManuallyAssignedEvent, self.onSeriesTypeManuallyAssigned)
-    self.session.addEventObserver(self.session.FailedPreprocessedEvent, self.onFailedPreProcessing)
-    self.session.addEventObserver(self.session.RegistrationStatusChangedEvent, self.onRegistrationStatusChanged)
     self.session.addEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
 
   def removeSessionEventObservers(self):
     ProstateCryoAblationStep.removeSessionEventObservers(self)
-    self.session.removeEventObserver(self.session.IncomingPreopDataReceiveFinishedEvent, self.onPreopReceptionFinished)
     self.session.removeEventObserver(self.session.SeriesTypeManuallyAssignedEvent, self.onSeriesTypeManuallyAssigned)
-    self.session.removeEventObserver(self.session.FailedPreprocessedEvent, self.onFailedPreProcessing)
-    self.session.removeEventObserver(self.session.RegistrationStatusChangedEvent, self.onRegistrationStatusChanged)
     self.session.removeEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
 
   def onSkipIntraopSeriesButtonClicked(self):
@@ -143,7 +138,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     if selectedSeries:
       trackingPossible = self.session.isTrackingPossible(selectedSeries)
       self.setIntraopSeriesButtons(trackingPossible, selectedSeries)
-      self.configureViewersForSelectedIntraopSeries(selectedSeries)
+      #self.configureViewersForSelectedIntraopSeries(selectedSeries)
       self.changeSeriesTypeButton.setSeries(selectedSeries)
     colorStyle = self.session.getColorForSelectedSeries(self.intraopSeriesSelector.currentText)
     self.intraopSeriesSelector.setStyleSheet("QComboBox{%s} QToolTip{background-color: white;}" % colorStyle)
@@ -173,7 +168,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def setIntraopSeriesButtons(self, trackingPossible, selectedSeries):
     trackingPossible = trackingPossible and not self.session.data.completed
-    self.changeSeriesTypeButton.enabled = not self.session.data.exists(selectedSeries) # TODO: take zFrameRegistration into account
+    #self.changeSeriesTypeButton.enabled = not self.session.data.exists(selectedSeries) # TODO: take zFrameRegistration into account
     self.trackTargetsButton.enabled = trackingPossible
     self.skipIntraopSeriesButton.enabled = trackingPossible and self.session.isEligibleForSkipping(selectedSeries)
 
@@ -298,14 +293,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       self.onTrackTargetsButtonClicked()
       return
 
-    if self.session.isInGeneralTrackable(self.intraopSeriesSelector.currentText):
-      if self.notifyUserAboutNewData and not self.session.data.completed:
-        dialog = IncomingDataMessageBox()
-        self.notifyUserAboutNewDataAnswer, checked = dialog.exec_()
-        self.notifyUserAboutNewData = not checked
-      if hasattr(self, "notifyUserAboutNewDataAnswer") and self.notifyUserAboutNewDataAnswer == qt.QMessageBox.AcceptRole:
-        self.onTrackTargetsButtonClicked()
-
   def updateIntraopSeriesSelectorTable(self):
     self.intraopSeriesSelector.blockSignals(True)
     currentIndex = self.intraopSeriesSelector.currentIndex
@@ -313,14 +300,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     for series in self.session.seriesList:
       sItem = qt.QStandardItem(series)
       self._seriesModel.appendRow(sItem)
-      color = COLOR.YELLOW
-      if self.session.data.registrationResultWasApproved(series) or \
-        (self.session.seriesTypeManager.isCoverTemplate(series) and not self.session.isCoverTemplateTrackable(series)):
-        color = COLOR.GREEN
-      elif self.session.data.registrationResultWasSkipped(series):
-        color = COLOR.RED
-      elif self.session.data.registrationResultWasRejected(series):
-        color = COLOR.GRAY
+      color = COLOR.GREEN
       self._seriesModel.setData(sItem.index(), color, qt.Qt.BackgroundRole)
     self.intraopSeriesSelector.setCurrentIndex(currentIndex)
     self.intraopSeriesSelector.blockSignals(False)
@@ -336,16 +316,12 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.intraopSeriesSelector.setCurrentIndex(-1)
     self.intraopSeriesSelector.blockSignals(False)
     index = -1
-    if not self.session.data.getMostRecentApprovedCoverProstateRegistration():
-      substring = self.getSetting("COVER_TEMPLATE") \
-        if not self.session.zFrameRegistrationSuccessful else self.getSetting("COVER_PROSTATE")
+    #if not self.session.data.getMostRecentApprovedCoverProstateRegistration():
+    #  substring = self.getSetting("COVER_TEMPLATE") \
+    #    if not self.session.zFrameRegistrationSuccessful else self.getSetting("COVER_PROSTATE")
     for item in list(reversed(range(len(self.session.seriesList)))):
       series = self._seriesModel.item(item).text()
       if substring in seriesTypeManager.getSeriesType(series):
-        if index != -1:
-          if self.session.data.registrationResultWasApprovedOrRejected(series) or \
-            self.session.data.registrationResultWasSkipped(series):
-            break
         index = self.intraopSeriesSelector.findText(series)
         break
       elif self.session.seriesTypeManager.isVibe(series) and index == -1:

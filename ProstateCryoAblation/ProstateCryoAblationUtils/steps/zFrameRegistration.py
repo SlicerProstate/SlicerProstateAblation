@@ -24,8 +24,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   ZFRAME_TEMPLATE_CONFIG_FILE_NAME = 'ProstateTemplate.csv'
   ZFRAME_MODEL_NAME = 'ZFrameModel'
   ZFRAME_TEMPLATE_NAME = 'NeedleGuideTemplate'
-  ZFRAME_TEMPLATE_PATH_NAME = 'NeedleGuideNeedlePath'
-  # COMPUTED_NEEDLE_MODEL_NAME = 'ComputedNeedleModel'
+  ZFRAME_TEMPLATE_NEEDLE_NAME = 'NeedleGuideTemplate'
 
   @property
   def templateSuccessfulLoaded(self):
@@ -49,7 +48,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.showTemplatePath = False
     self.showNeedlePath = False
 
-    self.needleModelNode = None
     self.tempModelNode = None
     self.pathModelNode = None
     self.templateConfig = []
@@ -70,9 +68,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
 
   def clearOldNodes(self):
     self.clearOldNodesByName(self.ZFRAME_TEMPLATE_NAME)
-    self.clearOldNodesByName(self.ZFRAME_TEMPLATE_PATH_NAME)
     self.clearOldNodesByName(self.ZFRAME_MODEL_NAME)
-    # self.clearOldNodesByName(self.COMPUTED_NEEDLE_MODEL_NAME)
 
   def loadZFrameModel(self):
     zFrameModelPath = os.path.join(self.resourcesPath, "zframe", self.ZFRAME_MODEL_PATH)
@@ -115,7 +111,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.createTemplateAndNeedlePathModel()
     self.setTemplateVisibility(0)
     self.setTemplatePathVisibility(0)
-    self.setNeedlePathVisibility(0)
     self.updateTemplateVectors()
 
   def createTemplateAndNeedlePathModel(self):
@@ -162,14 +157,14 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   def checkAndCreateTemplateModelNode(self):
     if self.tempModelNode is None:
       self.tempModelNode = self.createModelNode(self.ZFRAME_TEMPLATE_NAME)
-      self.setAndObserveDisplayNode(self.tempModelNode)
+      self.createAndObserveDisplayNode(self.tempModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
       self.modelNodeTag = self.tempModelNode.AddObserver(slicer.vtkMRMLTransformableNode.TransformModifiedEvent,
                                                          self.updateTemplateVectors)
 
   def checkAndCreatePathModelNode(self):
     if self.pathModelNode is None:
-      self.pathModelNode = self.createModelNode(self.ZFRAME_TEMPLATE_PATH_NAME)
-      self.setAndObserveDisplayNode(self.pathModelNode)
+      self.pathModelNode = self.createModelNode(self.ZFRAME_TEMPLATE_NEEDLE_NAME)
+      self.createAndObserveDisplayNode(self.pathModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
 
   def updateTemplateVectors(self, observee=None, event=None):
     if self.tempModelNode is None:
@@ -208,12 +203,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.showTemplatePath = visibility
     self.setNodeVisibility(self.pathModelNode, visibility)
     self.setNodeSliceIntersectionVisibility(self.pathModelNode, visibility)
-
-  def setNeedlePathVisibility(self, visibility):
-    self.showNeedlePath = visibility
-    if self.needleModelNode:
-      self.setNodeVisibility(self.needleModelNode, visibility)
-      self.setNodeSliceIntersectionVisibility(self.needleModelNode, visibility)
 
   def runZFrameRegistration(self, inputVolume, algorithm, **kwargs):
     registration = algorithm(inputVolume)
@@ -344,10 +333,9 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.showZFrameModelButton.connect('toggled(bool)', self.onShowZFrameModelToggled)
     self.showTemplateButton.connect('toggled(bool)', self.onShowZFrameTemplateToggled)
     self.showTemplatePathButton.connect('toggled(bool)', self.onShowTemplatePathToggled)
-    # self.showNeedlePathButton.connect('toggled(bool)', self.onShowNeedlePathToggled)
 
-  def setupSessionObservers(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).setupSessionObservers()
+  def addSessionObservers(self):
+    super(ProstateCryoAblationZFrameRegistrationStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.InitiateZFrameCalibrationEvent, self.onInitiateZFrameCalibration)
 
   def removeSessionEventObservers(self):
@@ -363,9 +351,6 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
 
   def onShowTemplatePathToggled(self, checked):
     self.logic.setTemplatePathVisibility(checked)
-
-  def onShowNeedlePathToggled(self, checked):
-    self.logic.setNeedlePathVisibility(checked)
 
   def resetViewSettingButtons(self):
     self.showTemplateButton.enabled = self.logic.templateSuccessfulLoaded
@@ -537,7 +522,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
   def applyZFrameTransform(self):
     for node in [node for node in
                  [self.logic.pathModelNode, self.logic.tempModelNode,
-                  self.logic.zFrameModelNode, self.logic.needleModelNode] if node]:
+                  self.logic.zFrameModelNode] if node]:
       node.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID())
 
   def onApproveZFrameRegistrationButtonClicked(self):

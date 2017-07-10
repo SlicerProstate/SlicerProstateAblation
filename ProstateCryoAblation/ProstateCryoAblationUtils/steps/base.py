@@ -30,20 +30,16 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
   def setupAdditionalViewSettingButtons(self):
     pass
 
-  def setupSessionObservers(self):
-    super(ProstateCryoAblationWidgetBase, self).setupSessionObservers()
+  def addSessionObservers(self):
+    super(ProstateCryoAblationWidgetBase, self).addSessionObservers()
     self.session.addEventObserver(self.session.NewImageSeriesReceivedEvent, self.onNewImageSeriesReceived)
     self.session.addEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
-    self.session.addEventObserver(self.session.LoadingMetadataSuccessfulEvent, self.onLoadingMetadataSuccessful)
-    self.session.addEventObserver(self.session.PreprocessingSuccessfulEvent, self.onPreprocessingSuccessful)
 
   def removeSessionEventObservers(self):
     super(ProstateCryoAblationWidgetBase, self).removeSessionEventObservers()
     self.session.removeEventObserver(self.session.NewImageSeriesReceivedEvent, self.onNewImageSeriesReceived)
     self.session.removeEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
-    self.session.removeEventObserver(self.session.LoadingMetadataSuccessfulEvent, self.onLoadingMetadataSuccessful)
-    self.session.removeEventObserver(self.session.PreprocessingSuccessfulEvent, self.onPreprocessingSuccessful)
-
+  
   def onActivation(self):
     self.layoutManager.layoutChanged.connect(self.onLayoutChanged)
     self.session.addEventObserver(self.session.CurrentResultChangedEvent, self.onCurrentResultChanged)
@@ -85,12 +81,6 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
   def onCurrentSeriesChanged(self, caller, event, callData=None):
     pass
 
-  def onLoadingMetadataSuccessful(self, caller, event):
-    pass
-
-  def onPreprocessingSuccessful(self, caller, event):
-    pass
-
   def setupFourUpView(self, volume, clearLabels=True):
     self.setBackgroundToVolumeID(volume.GetID(), clearLabels)
     self.layoutManager.setLayout(constants.LAYOUT_FOUR_UP)
@@ -116,11 +106,6 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
     self.updateFOV() # TODO: shall not be called here
 
   def updateFOV(self):
-    # if self.getSetting("COVER_TEMPLATE") in self.intraopSeriesSelector.currentText:
-    #   self.setDefaultFOV(self.redSliceLogic, 1.0)
-    #   self.setDefaultFOV(self.yellowSliceLogic, 1.0)
-    #   self.setDefaultFOV(self.greenSliceLogic, 1.0)
-    # el
     if self.layoutManager.layout == constants.LAYOUT_RED_SLICE_ONLY:
       self.setDefaultFOV(self.redSliceLogic)
     elif self.layoutManager.layout == constants.LAYOUT_SIDE_BY_SIDE:
