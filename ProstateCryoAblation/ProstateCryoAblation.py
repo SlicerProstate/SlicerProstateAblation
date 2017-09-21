@@ -13,6 +13,7 @@ from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationStep
 from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOverviewStep
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStep
 from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
+from ProstateCryoAblationUtils.steps.intraOperativeGuidance import ProstateCryoAblationGuidanceStep
 #from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
 
 from SlicerDevelopmentToolboxUtils.buttons import *
@@ -77,7 +78,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep, ProstateCryoAblationTargetingStep]:
+    for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep, ProstateCryoAblationTargetingStep, ProstateCryoAblationGuidanceStep]:
       self.session.registerStep(step())
 
     self.customStatusProgressBar = CustomStatusProgressbar()
@@ -117,12 +118,13 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.sideBySideLayoutButton = SideBySideLayoutButton()
     self.fourUpLayoutButton = FourUpLayoutButton()
     self.layoutButtons = [self.redOnlyLayoutButton, self.sideBySideLayoutButton, self.fourUpLayoutButton]
-    self.crosshairButton = CrosshairButton()
+    #self.crosshairButton = CrosshairButton()
+
     self.wlEffectsToolButton = WindowLevelEffectsButton()
     self.settingsButton = ModuleSettingsButton(self.moduleName)
     self.showAnnotationsButton = self.createButton("", icon=self.textInfoIcon, iconSize=iconSize, checkable=True, toolTip="Display annotations", checked=True)
     viewSettingButtons = [self.redOnlyLayoutButton, self.fourUpLayoutButton,
-                          self.crosshairButton,   self.wlEffectsToolButton, self.settingsButton]
+                          self.wlEffectsToolButton, self.settingsButton]
     
     for step in self.session.steps:
       viewSettingButtons += step.viewSettingButtons
@@ -135,7 +137,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     for step in self.session.steps:
       step.resetViewSettingButtons()
     self.wlEffectsToolButton.checked = False
-    self.crosshairButton.checked = False
+    #self.crosshairButton.checked = False
 
   def setupTabBarNavigation(self):
     self.tabWidget = ProstateCryoAblationTabWidget()

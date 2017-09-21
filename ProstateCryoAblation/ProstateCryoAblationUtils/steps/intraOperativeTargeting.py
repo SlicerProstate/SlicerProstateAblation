@@ -141,7 +141,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
         pos = [0.0,0.0,0.0]
         self.session.movingTargets.GetNthFiducialPosition(posIndex, pos)
         depth = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation.getZFrameDepth(posIndex,False)
-        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(pos, pos- 10*depth*needleVector, radius=0.8, numSides=18)
+        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(pos, pos- 10*depth*needleVector, radius=1.5, numSides=6)
         needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
         needleModelAppend.Update()
   

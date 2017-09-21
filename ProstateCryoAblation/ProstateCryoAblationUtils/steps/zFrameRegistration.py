@@ -21,7 +21,9 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   __metaclass__ = Singleton
 
   ZFRAME_MODEL_PATH = 'zframe-model.vtk'
-  ZFRAME_TEMPLATE_CONFIG_FILE_NAME = 'ProstateTemplate.csv'
+  ZFRAME_TEMPLATE_VTK_FILE_NAME = 'CryoTemplate.vtk'
+  ZFRAME_NEEDLEPATH_VTK_FILE_NAME = 'CryoTemplate-NeedlePath.vtk'
+  ZFRAME_NEEDLEPATH_CONFIG_FILE_NAME = 'ProstateTemplate.csv'
   ZFRAME_MODEL_NAME = 'ZFrameModel'
   ZFRAME_TEMPLATE_NAME = 'NeedleGuideTemplate'
   ZFRAME_TEMPLATE_NEEDLE_NAME = 'NeedleGuideTemplate'
@@ -93,8 +95,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   def loadTemplateConfigFile(self):
     self.templateIndex = []
     self.templateConfig = []
-
-    defaultTemplateFile = os.path.join(self.resourcesPath, "zframe", self.ZFRAME_TEMPLATE_CONFIG_FILE_NAME)
+    defaultTemplateFile = os.path.join(self.resourcesPath, "zframe", self.ZFRAME_NEEDLEPATH_CONFIG_FILE_NAME)
 
     reader = csv.reader(open(defaultTemplateFile, 'rb'))
     try:
@@ -117,32 +118,25 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.templatePathVectors = []
     self.templatePathOrigins = []
 
-    self.checkAndCreateTemplateModelNode()
     self.checkAndCreatePathModelNode()
-
-    pathModelAppend = vtk.vtkAppendPolyData()
-    templateModelAppend = vtk.vtkAppendPolyData()
+    zFrameTemplateModelFile= os.path.join(self.resourcesPath, self.ZFRAME_TEMPLATE_VTK_FILE_NAME)
+    _, self.tempModelNode = slicer.util.loadModel(zFrameTemplateModelFile, returnNode=True)
+    self.tempModelNode.SetName(self.ZFRAME_TEMPLATE_NAME)
+    self.modelNodeTag = self.tempModelNode.AddObserver(slicer.vtkMRMLTransformableNode.TransformModifiedEvent,
+                                                       self.updateTemplateVectors)
+    needlePathModelFile = os.path.join(self.resourcesPath, self.ZFRAME_NEEDLEPATH_VTK_FILE_NAME)
+    _, self.pathModelNode = slicer.util.loadModel(needlePathModelFile, returnNode=True)
 
     for row in self.templateConfig:
       p, n = self.extractPointsAndNormalVectors(row)
 
-      tempTubeFilter = self.createVTKTubeFilter(p[0], p[1], radius=1.0, numSides=18)
-      templateModelAppend.AddInputData(tempTubeFilter.GetOutput())
-      templateModelAppend.Update()
-
-      pathTubeFilter = self.createVTKTubeFilter(p[0], p[2], radius=0.8, numSides=18)
-      pathModelAppend.AddInputData(pathTubeFilter.GetOutput())
-      pathModelAppend.Update()
-
       self.templatePathOrigins.append([row[0], row[1], row[2], 1.0])
       self.templatePathVectors.append([n[0], n[1], n[2], 1.0])
       self.templateMaxDepth.append(row[6])
-
-    self.tempModelNode.SetAndObservePolyData(templateModelAppend.GetOutput())
     self.tempModelNode.GetDisplayNode().SetColor(0.5,0,1)
-
-    self.pathModelNode.SetAndObservePolyData(pathModelAppend.GetOutput())
+    self.tempModelNode.GetDisplayNode().SetSliceIntersectionVisibility(True)
     self.pathModelNode.GetDisplayNode().SetColor(0.8,0.5,1)
+    self.pathModelNode.GetDisplayNode().SetSliceIntersectionVisibility(True)
 
   def extractPointsAndNormalVectors(self, row):
     p1 = numpy.array(row[0:3])
@@ -153,13 +147,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     l = row[6]
     p3 = p1 + l * n
     return [p1, p2, p3], n
-
-  def checkAndCreateTemplateModelNode(self):
-    if self.tempModelNode is None:
-      self.tempModelNode = self.createModelNode(self.ZFRAME_TEMPLATE_NAME)
-      self.createAndObserveDisplayNode(self.tempModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
-      self.modelNodeTag = self.tempModelNode.AddObserver(slicer.vtkMRMLTransformableNode.TransformModifiedEvent,
-                                                         self.updateTemplateVectors)
 
   def checkAndCreatePathModelNode(self):
     if self.pathModelNode is None:
@@ -176,7 +163,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
       transformNode.GetMatrixTransformToWorld(trans)
     else:
       trans.Identity()
-
     # Calculate offset
     zero = [0.0, 0.0, 0.0, 1.0]
     offset = trans.MultiplyDoublePoint(zero)

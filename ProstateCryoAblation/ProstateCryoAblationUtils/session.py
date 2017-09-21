@@ -47,6 +47,8 @@ class ProstateCryoAblationSession(StepBasedSession):
   InitiateRegistrationEvent = vtk.vtkCommand.UserEvent + 162
   InitiateEvaluationEvent = vtk.vtkCommand.UserEvent + 163
 
+  NeedleGuidanceEvent = vtk.vtkCommand.UserEvent + 164
+
   CurrentResultChangedEvent = vtk.vtkCommand.UserEvent + 234
 
   ApprovedEvent = RegistrationResult.ApprovedEvent
@@ -413,9 +415,10 @@ class ProstateCryoAblationSession(StepBasedSession):
       indexer.addFile(slicer.dicomDatabase, currentFile, None)
       series = self.makeSeriesNumberDescription(currentFile)
       if series not in self.seriesList:
-        self.seriesList.append(series)
-        newSeries.append(series)
-        self.loadableList[series] = self.createLoadableFileListForSeries(series)
+        if not series.split(": ")[0] == '__TAG_NOT_IN_INSTANCE__':
+          self.seriesList.append(series)
+          newSeries.append(series)
+          self.loadableList[series] = self.createLoadableFileListForSeries(series)
     self.seriesList = sorted(self.seriesList, key=lambda s: RegistrationResult.getSeriesNumberFromString(s))
 
     if len(newFileList):
@@ -471,9 +474,10 @@ class ProstateCryoAblationSession(StepBasedSession):
     loadableList = []
     for dcm in self.getFileList(self.intraopDICOMDirectory):
       currentFile = os.path.join(self.intraopDICOMDirectory, dcm)
-      currentSeriesNumber = int(self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER))
-      if currentSeriesNumber and currentSeriesNumber == seriesNumber:
-        loadableList.append(currentFile)
+      if not self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER)  == '__TAG_NOT_IN_INSTANCE__':
+        currentSeriesNumber = int(self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER))
+        if currentSeriesNumber and currentSeriesNumber == seriesNumber:
+          loadableList.append(currentFile)
     return loadableList
 
   def deleteSeriesFromSeriesList(self, seriesNumber):
@@ -715,6 +719,8 @@ class ProstateCryoAblationSession(StepBasedSession):
       callData = str(False)
     elif self.seriesTypeManager.isCoverTemplate(self.currentSeries):
       event = self.InitiateZFrameCalibrationEvent
+    elif self.seriesTypeManager.isGuidance(self.currentSeries):
+      event = self.NeedleGuidanceEvent
     if event:
       self.invokeEvent(event, callData)
     else:
