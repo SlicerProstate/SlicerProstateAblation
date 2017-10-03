@@ -18,7 +18,7 @@ from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse, onR
 from SlicerDevelopmentToolboxUtils.module.session import StepBasedSession
 
 
-from SliceTrackerRegistration import SliceTrackerRegistrationLogic
+#from zFrameRegistration import ProstateCryoAblationZFrameRegistrationStepLogic
 
 
 @singleton
@@ -201,7 +201,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def __init__(self):
     StepBasedSession.__init__(self)
-    self.registrationLogic = SliceTrackerRegistrationLogic()
+    #self.registrationLogic = ProstateCryoAblationZFrameRegistrationStepLogic()
     self.seriesTypeManager = SeriesTypeManager()
     self.seriesTypeManager.addEventObserver(self.seriesTypeManager.SeriesTypeManuallyAssignedEvent,
                                             lambda caller, event: self.invokeEvent(self.SeriesTypeManuallyAssignedEvent))
@@ -227,10 +227,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.previousStep = None
 
   def initializeColorNodes(self):
-    from mpReview import mpReviewLogic
-    self.mpReviewColorNode, self.structureNames = mpReviewLogic.loadColorTable(self.getSetting("Color_File_Name"))
     self.segmentedColorName = self.getSetting("Segmentation_Color_Name")
-    self.segmentedLabelValue = self.mpReviewColorNode.GetColorIndexByName(self.segmentedColorName)
     
   def __del__(self):
     super(ProstateCryoAblationSession, self).__del__()
@@ -318,13 +315,14 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.clearData()
 
   def postProcessLoadedSessionData(self):
-    coverProstate = self.data.getMostRecentApprovedCoverProstateRegistration()
-    if coverProstate:
-      if not self.data.initialVolume:
-        self.data.initialVolume = coverProstate.volumes.moving if self.data.usePreopData else coverProstate.volumes.fixed
-      self.data.initialTargets = coverProstate.targets.original
-      if self.data.usePreopData:  # TODO: makes sense?
+    if self.data.usePreopData:
+      coverProstate = self.data.getMostRecentApprovedCoverProstateRegistration()
+      if coverProstate:
+        if not self.data.initialVolume:
+          self.data.initialVolume = coverProstate.volumes.moving if self.data.usePreopData else coverProstate.volumes.fixed
+        self.data.initialTargets = coverProstate.targets.original
         self.data.preopLabel = coverProstate.labels.moving
+    self.steps[0].targetTablePlugin.currentTargets = self.data.initialTargets
     if self.data.zFrameRegistrationResult:
       self._zFrameRegistrationSuccessful = True
     self.data.resumed = not self.data.completed
@@ -520,15 +518,17 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def loadPreProcessedData(self):
     try:
-      self.loadPreopData(self.getFirstMpReviewPreprocessedStudy(self.preprocessedDirectory))
+      self.loadPreopData(self.getFirstPreprocessedStudy(self.preprocessedDirectory))
       self.startIntraopDICOMReceiver()
     except PreProcessedDataError:
       self.close(save=False)
 
+  def wasCasePreprocessed(self):
+    return False
+
   def loadCaseData(self):
     if not os.path.exists(os.path.join(self.outputDirectory, constants.JSON_FILENAME)):
-      from mpReview import mpReviewLogic
-      if mpReviewLogic.wasmpReviewPreprocessed(self.preprocessedDirectory):
+      if self.wasCasePreprocessed(self.preprocessedDirectory):
         self.loadPreProcessedData()
       else:
         if len(os.listdir(self.preopDICOMDirectory)):
@@ -567,7 +567,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       displayNode.SetGlyphType(slicer.vtkMRMLAnnotationPointDisplayNode.StarBurst2D)
     return displayNode
 
-  def getFirstMpReviewPreprocessedStudy(self, directory):
+  def getFirstPreprocessedStudy(self, directory):
     # TODO add check here and selected the one which has targets in it
     # TODO: if several studies are available provide a drop down or anything similar for choosing
     directoryNames = [x[0] for x in os.walk(directory)]
@@ -575,40 +575,38 @@ class ProstateCryoAblationSession(StepBasedSession):
     return directoryNames[1]
 
   def loadPreopData(self, directory):
-    message = self.loadMpReviewProcessedData(directory)
+    message = self.loadProcessedData(directory)
     logging.info(message)
     if message or not self.loadT2Label() or not self.loadPreopVolume() or not self.loadPreopTargets():
       self.invokeEvent(self.FailedPreprocessedEvent,
-                       "Loading preop data failed.\nMake sure that the correct mpReview directory structure is used."
-                       "\n\n Application expects a T2 volume, WholeGland segmentation and target(s). Do you want to "
+                       "Loading preop data failed.\nMake sure that the correct directory structure is used."
+                       "\n\n Application expects a T2 volume, lesion segmentation and target(s). Do you want to "
                        "open/revisit pre-processing for the current case?")
     else:
       self.data.usePreopData = True
       self.setupPreopLoadedTargets()
       self.invokeEvent(self.PreprocessingSuccessfulEvent)
-      # self.logic.preopLabel.GetDisplayNode().SetAndObserveColorNodeID(self.mpReviewColorNode.GetID())
 
-  def loadMpReviewProcessedData(self, directory):
-    from mpReview import mpReviewLogic
+  def loadProcessedData(self, directory):
     resourcesDir = os.path.join(directory, 'RESOURCES')
     logging.debug(resourcesDir)
     if not os.path.exists(resourcesDir):
-      message = "The selected directory does not fit the mpReview directory structure. Make sure that you select the " \
+      message = "The selected directory does not fit the directory structure. Make sure that you select the " \
                 "study root directory which includes directories RESOURCES"
       return message
 
     # self.progress = self.createProgressDialog(maximum=len(os.listdir(resourcesDir)))
     # seriesMap, metaFile = mpReviewLogic.loadMpReviewProcessedData(resourcesDir,
     #                                                               updateProgressCallback=self.updateProgressBar)
-    seriesMap, metaFile = mpReviewLogic.loadMpReviewProcessedData(resourcesDir)
+    #seriesMap, metaFile = mpReviewLogic.loadMpReviewProcessedData(resourcesDir)
     # self.progress.delete()
 
     self.data.initialTargetsPath = os.path.join(directory, 'Targets')
-
+    seriesMap =[]
     self.loadPreopImageAndLabel(seriesMap)
 
     if self.preopSegmentationPath is None:
-      message = "No segmentations found.\nMake sure that you used mpReview for segmenting the prostate first and using " \
+      message = "No segmentations found.\nMake sure that you used segment editor for segmenting the prostate first and using " \
                 "its output as the preop data input here."
       return message
     return None
@@ -643,7 +641,7 @@ class ProstateCryoAblationSession(StepBasedSession):
   def loadT2Label(self):
     if self.data.initialLabel:
       return True
-    mostRecentFilename = self.getMostRecentWholeGlandSegmentation(self.preopSegmentationPath)
+    mostRecentFilename = self.getMostRecentLesionSegmentation(self.preopSegmentationPath)
     success = False
     if mostRecentFilename:
       filename = os.path.join(self.preopSegmentationPath, mostRecentFilename)
@@ -675,8 +673,8 @@ class ProstateCryoAblationSession(StepBasedSession):
         self.data.initialTargets.SetLocked(True)
     return success
 
-  def getMostRecentWholeGlandSegmentation(self, path):
-    return self.getMostRecentFile(path, FileExtension.NRRD, filter="WholeGland")
+  def getMostRecentLesionSegmentation(self, path):
+    return self.getMostRecentFile(path, FileExtension.NRRD, filter="Lesion")
 
   def getMostRecentTargetsFile(self, path):
     return self.getMostRecentFile(path, FileExtension.FCSV)

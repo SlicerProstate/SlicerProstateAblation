@@ -17,7 +17,7 @@ from ProstateCryoAblationUtils.steps.plugins.training import ProstateCryoAblatio
 from ..constants import ProstateCryoAblationConstants as constants
 from ..sessionData import RegistrationResult
 from ..helpers import IncomingDataMessageBox, SeriesTypeToolButton, SeriesTypeManager
-
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationOverViewStepLogic(ProstateCryoAblationLogicBase):
 
@@ -57,7 +57,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def setupIcons(self):
     self.trackIcon = self.createIcon('icon-track.png')
-    self.skipIcon = self.createIcon('icon-skip.png')
+    self.skipIcon = Icons.skip #self.createIcon('icon-skip.png')
 
   def setup(self):
     super(ProstateCryoAblationOverviewStep, self).setup()
@@ -104,6 +104,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def setupIntraopSeriesSelector(self):
     self.intraopSeriesSelector = qt.QComboBox()
     self.intraopSeriesSelector.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum)
+    self.intraopSeriesSelector.setSizeAdjustPolicy(qt.QComboBox.AdjustToContents)
     self._seriesModel = qt.QStandardItemModel()
     self.intraopSeriesSelector.setModel(self._seriesModel)
     self.intraopSeriesSelector.setToolTip(constants.IntraopSeriesSelectorToolTip)

@@ -7,14 +7,47 @@ import ast
 import SimpleITK as sitk
 import sitkUtils
 
-from ..algorithms.zFrameRegistration import LineMarkerRegistration, OpenSourceZFrameRegistration
 from ..constants import ProstateCryoAblationConstants
 from base import ProstateCryoAblationLogicBase, ProstateCryoAblationStep
 
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.metaclasses import Singleton
+from SlicerDevelopmentToolboxUtils.icons import Icons
+from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 
+class ZFrameRegistrationBase(ModuleLogicMixin):
+
+  ZFRAME_TRANSFORM_NAME = "ZFrameTransform"
+
+  def __init__(self, inputVolume):
+    self.inputVolume = inputVolume
+    self.outputTransform = None
+    self.outputVolume = None
+
+  def getOutputTransformation(self):
+    return self.outputTransform
+
+  def getOutputVolume(self):
+    return self.outputVolume
+
+  def runRegistration(self):
+    raise NotImplementedError
+
+class OpenSourceZFrameRegistration(ZFrameRegistrationBase):
+
+  def __init__(self, inputVolume):
+    super(OpenSourceZFrameRegistration, self).__init__(inputVolume)
+
+  def runRegistration(self, start, end):
+    assert start != -1 and end != -1
+    seriesNumber = self.inputVolume.GetName().split(":")[0]
+    self.outputTransform = self.createLinearTransformNode(seriesNumber + "-" + self.ZFRAME_TRANSFORM_NAME)
+
+    params = {'inputVolume': self.inputVolume, 'startSlice': start, 'endSlice': end,
+              'outputTransform': self.outputTransform}
+    print params
+    slicer.cli.run(slicer.modules.zframeregistration, None, params, wait_for_completion=True)
 
 class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicBase):
 
@@ -23,7 +56,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   ZFRAME_MODEL_PATH = 'zframe-model.vtk'
   ZFRAME_TEMPLATE_VTK_FILE_NAME = 'CryoTemplate.vtk'
   ZFRAME_NEEDLEPATH_VTK_FILE_NAME = 'CryoTemplate-NeedlePath.vtk'
-  ZFRAME_NEEDLEPATH_CONFIG_FILE_NAME = 'ProstateTemplate.csv'
+  ZFRAME_NEEDLEPATH_CONFIG_FILE_NAME = 'CryoAblationTemplate.csv'
   ZFRAME_MODEL_NAME = 'ZFrameModel'
   ZFRAME_TEMPLATE_NAME = 'NeedleGuideTemplate'
   ZFRAME_TEMPLATE_NEEDLE_NAME = 'NeedleGuideTemplate'
@@ -194,8 +227,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     registration = algorithm(inputVolume)
     if isinstance(registration, OpenSourceZFrameRegistration):
       registration.runRegistration(start=kwargs.pop("startSlice"), end=kwargs.pop("endSlice"))
-    elif isinstance(registration, LineMarkerRegistration):
-      registration.runRegistration()
     zFrameRegistrationResult = self.session.data.createZFrameRegistrationResult(self.templateVolume.GetName())
     zFrameRegistrationResult.volume = inputVolume
     zFrameRegistrationResult.transform = registration.getOutputTransformation()
@@ -266,9 +297,9 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.zFrameIcon = self.createIcon('icon-zframe.png')
     self.needleIcon = self.createIcon('icon-needle.png')
     self.templateIcon = self.createIcon('icon-template.png')
-    self.startIcon = self.createIcon('icon-start.png')
-    self.approveIcon = self.createIcon("icon-apply.png")
-    self.retryIcon = self.createIcon("icon-retry.png")
+    self.startIcon = Icons.start
+    self.approveIcon = Icons.apply
+    self.retryIcon = Icons.retry
 
   def setup(self):
     super(ProstateCryoAblationZFrameRegistrationStep, self).setup()
@@ -297,7 +328,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.runZFrameRegistrationButton = self.createButton("", icon=self.startIcon, iconSize=iconSize, enabled=False,
                                                          toolTip="Run ZFrame Registration")
     self.approveZFrameRegistrationButton = self.createButton("", icon=self.approveIcon, iconSize=iconSize,
-                                                             enabled=self.zFrameRegistrationClass is LineMarkerRegistration,
+                                                             enabled=False,
                                                              toolTip="Confirm registration accuracy", )
     self.retryZFrameRegistrationButton = self.createButton("", icon=self.retryIcon, iconSize=iconSize, enabled=False,
                                                            visible=self.zFrameRegistrationClass is OpenSourceZFrameRegistration,

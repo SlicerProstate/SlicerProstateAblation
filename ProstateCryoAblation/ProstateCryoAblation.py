@@ -24,7 +24,7 @@ from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar, DICOMBasedInformationWatchBox
 from slicer.ScriptedLoadableModule import *
-
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblation(ScriptedLoadableModule):
 
@@ -32,7 +32,7 @@ class ProstateCryoAblation(ScriptedLoadableModule):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "ProstateCryoAblation"
     self.parent.categories = ["IGT"]
-    self.parent.dependencies = ["SlicerProstate", "SlicerDevelopmentToolbox"]
+    self.parent.dependencies = ["SlicerDevelopmentToolbox"]
     self.parent.contributors = ["Longquan Chen(SPL)", "Junichi Tokuda (SPL)"]
     self.parent.helpText = """ module to support MRI-guided prostate cryoablation.
       See <a href=\"https://www.slicer.org/wiki/Modules:ProstateNav-Documentation-3.6\"> """
@@ -91,8 +91,8 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.layout.addStretch(1)
 
   def setupIcons(self):
-    self.settingsIcon = self.createIcon('icon-settings.png')
-    self.textInfoIcon = self.createIcon('icon-text-info.png')
+    self.settingsIcon = Icons.settings
+    self.textInfoIcon = Icons.text_info
 
   def setupPatientWatchBox(self):
     WatchBoxAttribute.TRUNCATE_LENGTH = 20
@@ -124,7 +124,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.settingsButton = ModuleSettingsButton(self.moduleName)
     self.showAnnotationsButton = self.createButton("", icon=self.textInfoIcon, iconSize=iconSize, checkable=True, toolTip="Display annotations", checked=True)
     viewSettingButtons = [self.redOnlyLayoutButton, self.fourUpLayoutButton,
-                          self.wlEffectsToolButton, self.settingsButton]
+                          self.wlEffectsToolButton, self.settingsButton, self.showAnnotationsButton ]
     
     for step in self.session.steps:
       viewSettingButtons += step.viewSettingButtons

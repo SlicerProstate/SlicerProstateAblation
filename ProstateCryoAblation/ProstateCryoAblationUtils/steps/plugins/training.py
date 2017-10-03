@@ -48,7 +48,9 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
     self.simulateIntraopPhaseButton.enabled = True
     intraopZipFile = self.initiateSampleDataDownload(ProstateCryoAblationConstants.INTRAOP_SAMPLE_DATA_URL)
     if not self.sampleDownloader.wasCanceled() and intraopZipFile:
+      print intraopZipFile
       self.unzipFileAndCopyToDirectory(intraopZipFile, self.session.intraopDICOMDirectory)
+      
 
   def initiateSampleDataDownload(self, url):
     filename = os.path.basename(url)

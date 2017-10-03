@@ -10,8 +10,8 @@ from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
-
-
+import numpy
+from SlicerDevelopmentToolboxUtils.icons import Icons
 class ProstateCryoAblationTargetingStepLogic(ProstateCryoAblationLogicBase):
   
   def __init__(self):
@@ -21,19 +21,23 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
   NAME = "Targeting"
   NEEDLE_NAME = 'NeedlePath'
+  AFFECTEDAREA_NAME = "AffectedArea"
   LogicClass = ProstateCryoAblationTargetingStepLogic
 
   def __init__(self):
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
-    iconPathDir = os.path.dirname(slicer.util.modulePath(ProstateCryoAblationConstants.MODULE_NAME))
-    self.finishStepIcon = self.createIcon('icon-start.png',
-                                          os.path.join(iconPathDir, 'Resources/Icons'))
-    self.backIcon = self.createIcon('icon-back.png',
-                                    os.path.join(iconPathDir, 'Resources/Icons'))
+    self.finishStepIcon = Icons.start
+    self.backIcon = Icons.back
     self.affectiveZoneIcon = self.createIcon('icon-needle.png')
+    self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
+    self.segmentationEditor.setMRMLScene(slicer.mrmlScene)
+    segmentEditorNode = slicer.vtkMRMLSegmentEditorNode()
+    slicer.mrmlScene.AddNode(segmentEditorNode)
+    self.segmentationEditor.setMRMLSegmentEditorNode(segmentEditorNode)
     super(ProstateCryoAblationTargetingStep, self).__init__()
     self.resetAndInitialize()
     self.needleModelNode = None
+    self.affectedAreaModelNode = None
     self.clearOldNodesByName(self.NEEDLE_NAME)
     self.checkAndCreateNeedleModelNode()
   
@@ -46,13 +50,17 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     if self.needleModelNode is None:
       self.needleModelNode = ModuleLogicMixin.createModelNode(self.NEEDLE_NAME)
       ModuleLogicMixin.createAndObserveDisplayNode(self.needleModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
-
+    if self.affectedAreaModelNode is None:
+      self.affectedAreaModelNode = ModuleLogicMixin.createModelNode(self.AFFECTEDAREA_NAME)
+      ModuleLogicMixin.createAndObserveDisplayNode(self.affectedAreaModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
+      self.affectedAreaModelNode.GetDisplayNode().SetOpacity(0.5)
   def resetAndInitialize(self):
     self.session.retryMode = False
 
   def setup(self):
     super(ProstateCryoAblationTargetingStep, self).setup()
     self.setupTargetingPlugin()
+    self.setupSegmentationWidget()
     self.setupAdditionalViewSettingButtons()
     self.setupNavigationButtons()
 
@@ -62,6 +70,11 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.targetingPlugin.addEventObserver(self.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
     self.addPlugin(self.targetingPlugin)
     self.layout().addWidget(self.targetingPlugin)
+
+  def setupSegmentationWidget(self):
+    #self.segmentationEditor.masterVolumeNodeSelectorVisible=False
+    #self.segmentationEditor.segmentationNodeSelectorVisible = False
+    self.layout().addWidget(self.segmentationEditor)
 
   def setupNavigationButtons(self):
     iconSize = qt.QSize(36, 36)
@@ -85,6 +98,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       self.session.previousStep.active = True
 
   def onFinishStepButtonClicked(self):
+    self.session.data.segmentModelNode = self.segmentationEditor.segmentationNode()
     self.session.previousStep.active = True
     """
     if not self.session.data.usePreopData and not self.session.retryMode:
@@ -115,28 +129,39 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     
   def onShowAffectiveZoneToggled(self, checked):
     self.showNeedlePath = checked
-    if self.needleModelNode and self.session.approvedCoverTemplate:
+    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate:
       ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
-      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked)  
+      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked) 
+      ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
+      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)  
       needleModelAppend = vtk.vtkAppendPolyData()
-      """
-      holesIndexList = self.targetingPlugin.targetTablePlugin._guidanceComputations.computedHoles
-      holesDepthList = self.targetingPlugin.targetTablePlugin._guidanceComputations.computedDepth
-      for holeIndex in range(len(holesIndexList)):
-        holesIndexList[holeIndex]
-        pathTubeFilter = self.createVTKTubeFilter(p[0], p[2], radius=0.8, numSides=18)
+      affectedBallAreaAppend = vtk.vtkAppendPolyData()
+      currentGuidanceComputation = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation
+      affectedBallAreaRadius = 9.0 # unit mm
+      offsetFromTip = 2.0 #unit mm
+      for targetIndex in range(currentGuidanceComputation.targetList.GetNumberOfFiducials()):
+        targetPosition = [0.0,0.0,0.0]
+        currentGuidanceComputation.targetList.GetNthFiducialPosition(targetIndex, targetPosition)
+        (start, end, indexX, indexY, depth, inRange) = currentGuidanceComputation.computeNearestPath(targetPosition)
+        needleDirection = (numpy.array(end) - numpy.array(start))/numpy.linalg.norm(numpy.array(end)-numpy.array(start))
+        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(start, start+depth*needleDirection, radius=1.5, numSides=6)
+        affectedBallArea = vtk.vtkSphereSource()
+        affectedBallArea.SetRadius(affectedBallAreaRadius)
+        affectedBallArea.SetPhiResolution(50)
+        affectedBallArea.SetThetaResolution(50)
+        affectedBallArea.SetCenter(start+(depth-offsetFromTip)*needleDirection)
+        affectedBallArea.Update()
         needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
         needleModelAppend.Update()
+        affectedBallAreaAppend.AddInputData(affectedBallArea.GetOutput())
+        affectedBallAreaAppend.Update()
         #self.templatePathOrigins.append([row[0], row[1], row[2], 1.0])
         #self.templatePathVectors.append([n[0], n[1], n[2], 1.0])
         #self.templateMaxDepth.append(row[6])
   
-      self.needleModelNode.SetAndObservePolyData(pathModelAppend.GetOutput())
-      self.needleModelNode.GetDisplayNode().SetColor(0.5,0.5,1.0)
-      self.needleModelNode.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID()) 
+      #self.needleModelNode.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID())
       """
       needleVector = self.session.steps[1].logic.pathVectors[0]
-      
       for posIndex in range(self.session.movingTargets.GetNumberOfFiducials()):
         pos = [0.0,0.0,0.0]
         self.session.movingTargets.GetNthFiducialPosition(posIndex, pos)
@@ -144,9 +169,11 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
         pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(pos, pos- 10*depth*needleVector, radius=1.5, numSides=6)
         needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
         needleModelAppend.Update()
-  
+      """
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
-      self.needleModelNode.GetDisplayNode().SetColor(0.5,0.5,1.0)
+      self.needleModelNode.GetDisplayNode().SetColor(0.0,1.0,0.5)
+      self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
+      self.affectedAreaModelNode.GetDisplayNode().SetColor(1,0.0,0.0)
       #self.needleModelNode.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID()) 
     pass  
 
@@ -180,6 +207,16 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     if not self.session.fixedVolume:
       return
     self.updateAvailableLayouts()
+    if not self.session.data.segmentModelNode:
+      # Create segmentation
+      self.session.data.segmentModelNode = slicer.vtkMRMLSegmentationNode()
+      slicer.mrmlScene.AddNode(self.session.data.segmentModelNode)
+      self.session.data.segmentModelNode.CreateDefaultDisplayNodes()  # only needed for display
+      self.session.data.segmentModelNode.SetReferenceImageGeometryParameterFromVolumeNode(self.session.currentSeriesVolume)
+      self.session.data.segmentModelNode.SetName("IntraOpSegmentation")
+      slicer.mrmlScene.AddNode(self.session.data.segmentModelNode)
+    self.segmentationEditor.setSegmentationNode(self.session.data.segmentModelNode)
+    self.segmentationEditor.setMasterVolumeNode(self.session.currentSeriesVolume)
     super(ProstateCryoAblationTargetingStep, self).onActivation()
 
   def updateAvailableLayouts(self):

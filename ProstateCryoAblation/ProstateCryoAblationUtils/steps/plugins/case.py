@@ -12,7 +12,7 @@ from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
 from SlicerDevelopmentToolboxUtils.widgets import BasicInformationWatchBox
 
 from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
-
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationCaseManagerLogic(ProstateCryoAblationLogicBase):
 
@@ -54,9 +54,12 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
     self.update()
 
   def setupIcons(self):
-    self.newIcon = self.createIcon('icon-new.png')
-    self.openIcon = self.createIcon('icon-open.png')
-    self.closeIcon = self.createIcon('icon-close.png')
+    self.newIcon = Icons.new
+    self.openIcon = Icons.open
+    self.closeIcon = Icons.exit
+    #self.newIcon = self.createIcon('icon-new.png')
+    #self.openIcon = self.createIcon('icon-open.png')
+    #self.closeIcon = self.createIcon('icon-close.png')
 
   def setup(self):
     super(ProstateCryoAblationCaseManagerPlugin, self).setup()
@@ -88,8 +91,8 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
   def setupCaseWatchBox(self):
     watchBoxInformation = [WatchBoxAttribute('CurrentCaseDirectory', 'Directory'),
                            WatchBoxAttribute('CurrentPreopDICOMDirectory', 'Preop DICOM Directory: '),
-                           WatchBoxAttribute('CurrentIntraopDICOMDirectory', 'Intraop DICOM Directory: '),
-                           WatchBoxAttribute('mpReviewDirectory', 'mpReview Directory: ')]
+                           WatchBoxAttribute('CurrentIntraopDICOMDirectory', 'Intraop DICOM Directory: ')
+                           ]
     self.caseWatchBox = BasicInformationWatchBox(watchBoxInformation, title="Current Case")
 
   def setupConnections(self):
@@ -155,9 +158,6 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
     self.caseWatchBox.setInformation("CurrentIntraopDICOMDirectory", os.path.relpath(self.session.intraopDICOMDirectory,
                                                                                      self.caseRootDir),
                                      toolTip=self.session.intraopDICOMDirectory)
-    self.caseWatchBox.setInformation("mpReviewDirectory", os.path.relpath(self.session.preprocessedDirectory,
-                                                                          self.caseRootDir),
-                                     toolTip=self.session.preprocessedDirectory)
 
   def updateCaseButtons(self):
     self.closeCaseButton.enabled = self.session.directory is not None

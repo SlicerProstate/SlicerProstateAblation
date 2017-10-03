@@ -13,7 +13,7 @@ from SlicerDevelopmentToolboxUtils.module.logic import LogicBase
 from SlicerDevelopmentToolboxUtils.module.base import ModuleBase
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin
 from SlicerDevelopmentToolboxUtils.metaclasses import Singleton
-
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class NewCaseSelectionNameWidget(qt.QMessageBox, ModuleWidgetMixin):
 
@@ -251,8 +251,8 @@ class SeriesTypeToolButton(qt.QToolButton, ModuleBase, ModuleWidgetMixin):
     self.enabled = False
 
   def setupIcons(self):
-    self.editIcon = self.createIcon("icon-edit.png")
-    self.infoIcon = self.createIcon('icon-infoBox.png')
+    self.editIcon = Icons.edit
+    self.infoIcon = Icons.info
 
   @logmethod(logging.DEBUG)
   def setSeries(self, series):

@@ -10,6 +10,7 @@ from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblati
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationGuidanceStepLogic(ProstateCryoAblationLogicBase): # make it the same as overview for now
 
@@ -26,10 +27,8 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
   def __init__(self):
     self.notifyUserAboutNewData = True
     iconPathDir = os.path.dirname(slicer.util.modulePath(ProstateCryoAblationConstants.MODULE_NAME))
-    self.finishStepIcon = self.createIcon('icon-start.png',
-                                          os.path.join(iconPathDir, 'Resources/Icons'))
-    self.backIcon = self.createIcon('icon-back.png',
-                                    os.path.join(iconPathDir, 'Resources/Icons'))
+    self.finishStepIcon = Icons.start
+    self.backIcon = Icons.back
     super(ProstateCryoAblationGuidanceStep, self).__init__()
 
 
