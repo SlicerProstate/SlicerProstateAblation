@@ -472,7 +472,11 @@ class ProstateCryoAblationSession(StepBasedSession):
     loadableList = []
     for dcm in self.getFileList(self.intraopDICOMDirectory):
       currentFile = os.path.join(self.intraopDICOMDirectory, dcm)
-      if not self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER)  == '__TAG_NOT_IN_INSTANCE__':
+      if self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER) and (not self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER)  == '__TAG_NOT_IN_INSTANCE__'):
+        try:
+          int(self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER))
+        except:
+          print "nothing: ", self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER)
         currentSeriesNumber = int(self.getDICOMValue(currentFile, DICOMTAGS.SERIES_NUMBER))
         if currentSeriesNumber and currentSeriesNumber == seriesNumber:
           loadableList.append(currentFile)

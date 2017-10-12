@@ -42,7 +42,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   NAME = "Overview"
   LogicClass = ProstateCryoAblationOverViewStepLogic
-
+  LayoutClass = qt.QVBoxLayout
   def __init__(self):
     super(ProstateCryoAblationOverviewStep, self).__init__()
     self.notifyUserAboutNewData = True
@@ -78,13 +78,15 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.targetTablePlugin = ProstateCryoAblationTargetingPlugin()
     self.addPlugin(self.targetTablePlugin)
     self.targetTablePlugin.currentTargets = self.session.movingTargets
-
+      
     self.layout().addWidget(self.caseManagerPlugin, 0, 0)
     self.layout().addWidget(self.trainingPlugin, 1, 0)
     self.layout().addWidget(self.targetTablePlugin, 2, 0)
     self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.changeSeriesTypeButton,
-                                                self.trackTargetsButton, self.skipIntraopSeriesButton]), 3, 0)
-    self.layout().addWidget(self.regResultsCollapsibleButton, 4, 0)
+                                                self.trackTargetsButton, self.skipIntraopSeriesButton]))
+                                             
+    self.layout().addStretch()
+    #self.layout().addWidget(self.regResultsCollapsibleButton, 4, 0)
     # self.layout().setRowStretch(8, 1)
 
   def setupRegistrationResultsPlugin(self):
@@ -104,7 +106,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def setupIntraopSeriesSelector(self):
     self.intraopSeriesSelector = qt.QComboBox()
     self.intraopSeriesSelector.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum)
-    self.intraopSeriesSelector.setSizeAdjustPolicy(qt.QComboBox.AdjustToContents)
     self._seriesModel = qt.QStandardItemModel()
     self.intraopSeriesSelector.setModel(self._seriesModel)
     self.intraopSeriesSelector.setToolTip(constants.IntraopSeriesSelectorToolTip)
