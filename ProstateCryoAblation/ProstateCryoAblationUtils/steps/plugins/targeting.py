@@ -83,7 +83,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.removeSliceAnnotations()
     if self.fiducialsWidget.hasTargetListAtLeastOneTarget():
       self.session.movingTargets = self.fiducialsWidget.currentNode
-      self.session.setupPreopLoadedTargets()
+      self.session.setupLoadedTargets()
       self.fiducialsWidget.visible = False
       self.targetTablePlugin.visible = True
       self.targetTablePlugin.currentTargets = self.fiducialsWidget.currentNode

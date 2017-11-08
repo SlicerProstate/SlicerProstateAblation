@@ -75,17 +75,16 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
     self.setupRegistrationResultsPlugin()
 
-    self.targetTablePlugin = ProstateCryoAblationTargetingPlugin()
-    self.addPlugin(self.targetTablePlugin)
-    self.targetTablePlugin.currentTargets = self.session.movingTargets
-      
-    self.layout().addWidget(self.caseManagerPlugin, 0, 0)
-    self.layout().addWidget(self.trainingPlugin, 1, 0)
-    self.layout().addWidget(self.targetTablePlugin, 2, 0)
+    self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
+    self.addPlugin(self.targetingPlugin)
+    self.targetingPlugin.currentTargets = self.session.movingTargets
+    self.layout().addWidget(self.caseManagerPlugin)
+    self.layout().addWidget(self.trainingPlugin)
+    self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
     self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.changeSeriesTypeButton,
                                                 self.trackTargetsButton, self.skipIntraopSeriesButton]))
-                                             
-    self.layout().addStretch()
+
+    self.layout().addStretch(1)
     #self.layout().addWidget(self.regResultsCollapsibleButton, 4, 0)
     # self.layout().setRowStretch(8, 1)
 
@@ -157,7 +156,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
         self.currentResult = self.session.data.getApprovedOrLastResultForSeries(selectedSeries).name
         self.regResultsCollapsibleButton.show()
         self.regResultsPlugin.onLayoutChanged()
-      self.targetTablePlugin.currentTargets = self.currentResult.targets.approved if self.currentResult.approved \
+      self.targetingPlugin.currentTargets = self.currentResult.targets.approved if self.currentResult.approved \
         else self.currentResult.targets.bSpline
     else:
       result = self.session.data.getResult(selectedSeries)
@@ -166,7 +165,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       self.regResultsCollapsibleButton.hide()
       if not self.session.data.registrationResultWasSkipped(selectedSeries):
         self.regResultsPlugin.cleanup()
-      self.targetTablePlugin.currentTargets = None
+      self.targetingPlugin.currentTargets = None
 
   def setIntraopSeriesButtons(self, trackingPossible, selectedSeries):
     trackingPossible = trackingPossible and not self.session.data.completed
@@ -340,7 +339,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.redSliceNode.RotateToVolumePlane(self.session.data.initialVolume)
     self.redSliceNode.SetUseLabelOutline(True)
     self.redCompositeNode.SetLabelOpacity(1)
-    self.targetTablePlugin.currentTargets = self.session.data.initialTargets
+    self.targetingPlugin.currentTargets = self.session.data.initialTargets
     # self.logic.centerViewsToProstate()
 
   def promptUserAndApplyBiasCorrectionIfNeeded(self):

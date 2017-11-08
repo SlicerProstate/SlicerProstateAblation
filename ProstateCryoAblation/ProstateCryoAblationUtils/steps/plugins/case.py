@@ -90,7 +90,6 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
 
   def setupCaseWatchBox(self):
     watchBoxInformation = [WatchBoxAttribute('CurrentCaseDirectory', 'Directory'),
-                           WatchBoxAttribute('CurrentPreopDICOMDirectory', 'Preop DICOM Directory: '),
                            WatchBoxAttribute('CurrentIntraopDICOMDirectory', 'Intraop DICOM Directory: ')
                            ]
     self.caseWatchBox = BasicInformationWatchBox(watchBoxInformation, title="Current Case")
@@ -152,9 +151,6 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
       return
     self.caseWatchBox.setInformation("CurrentCaseDirectory", os.path.relpath(self.session.directory, self.caseRootDir),
                                      toolTip=self.session.directory)
-    self.caseWatchBox.setInformation("CurrentPreopDICOMDirectory", os.path.relpath(self.session.preopDICOMDirectory,
-                                                                                   self.caseRootDir),
-                                     toolTip=self.session.preopDICOMDirectory)
     self.caseWatchBox.setInformation("CurrentIntraopDICOMDirectory", os.path.relpath(self.session.intraopDICOMDirectory,
                                                                                      self.caseRootDir),
                                      toolTip=self.session.intraopDICOMDirectory)

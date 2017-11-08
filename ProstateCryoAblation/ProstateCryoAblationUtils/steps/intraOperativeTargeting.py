@@ -11,7 +11,7 @@ from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
 import numpy
-from SlicerDevelopmentToolboxUtils.icons import Icons
+
 class ProstateCryoAblationTargetingStepLogic(ProstateCryoAblationLogicBase):
   
   def __init__(self):
@@ -23,11 +23,9 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   NEEDLE_NAME = 'NeedlePath'
   AFFECTEDAREA_NAME = "AffectedArea"
   LogicClass = ProstateCryoAblationTargetingStepLogic
-
+  LayoutClass = qt.QVBoxLayout
   def __init__(self):
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
-    self.finishStepIcon = Icons.start
-    self.backIcon = Icons.back
     self.affectiveZoneIcon = self.createIcon('icon-needle.png')
     self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.segmentationEditor.setMRMLScene(slicer.mrmlScene)
@@ -62,7 +60,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.setupTargetingPlugin()
     self.setupSegmentationWidget()
     self.setupAdditionalViewSettingButtons()
-    self.setupNavigationButtons()
+    self.addNavigationButtons()
+    self.layout().addStretch(1)
 
   def setupTargetingPlugin(self):
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
@@ -75,15 +74,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     #self.segmentationEditor.masterVolumeNodeSelectorVisible=False
     #self.segmentationEditor.segmentationNodeSelectorVisible = False
     self.layout().addWidget(self.segmentationEditor)
-
-  def setupNavigationButtons(self):
-    iconSize = qt.QSize(36, 36)
-    self.backButton = self.createButton("", icon=self.backIcon, iconSize=iconSize,
-                                        toolTip="Return to last step")
-    self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
-                                              toolTip="Confirm the targeting")
-    self.finishStepButton.setFixedHeight(45)
-    self.layout().addWidget(self.createHLayout([self.backButton, self.finishStepButton]))
 
   def setupAdditionalViewSettingButtons(self):
     iconSize = qt.QSize(24, 24)
@@ -98,7 +88,13 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       self.session.previousStep.active = True
 
   def onFinishStepButtonClicked(self):
+    #To do, deactivate the drawing buttons when finish button clicked
     self.session.data.segmentModelNode = self.segmentationEditor.segmentationNode()
+    for child in self.segmentationEditor.children():
+      if child.className() == 'QGroupBox':
+        if child.title == 'Effects':
+          child.children()[1].click()
+          break
     self.session.previousStep.active = True
     """
     if not self.session.data.usePreopData and not self.session.retryMode:
@@ -129,14 +125,14 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     
   def onShowAffectiveZoneToggled(self, checked):
     self.showNeedlePath = checked
-    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate:
+    currentGuidanceComputation = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation
+    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and currentGuidanceComputation.targetList.GetNumberOfFiducials():
       ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked) 
       ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)  
       needleModelAppend = vtk.vtkAppendPolyData()
       affectedBallAreaAppend = vtk.vtkAppendPolyData()
-      currentGuidanceComputation = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation
       affectedBallAreaRadius = 9.0 # unit mm
       offsetFromTip = 2.0 #unit mm
       for targetIndex in range(currentGuidanceComputation.targetList.GetNumberOfFiducials()):

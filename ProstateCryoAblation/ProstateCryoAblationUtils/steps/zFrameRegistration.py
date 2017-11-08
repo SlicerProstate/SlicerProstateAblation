@@ -309,7 +309,15 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.layout().addWidget(self.zFrameRegistrationManualIndexesGroupBox)
     self.layout().addWidget(self.createHLayout([self.runZFrameRegistrationButton, self.retryZFrameRegistrationButton,
                                                 self.approveZFrameRegistrationButton]))
+    self.layout().addWidget(self.createHLayout([self.backButton]))
     self.layout().addStretch(1)
+
+  def onBackButtonClicked(self):
+    self.resetZFrameRegistration()
+    self.annotationLogic.StopPlaceMode(True)
+    self.removeZFrameInstructionAnnotation()
+    if self.session.previousStep:
+      self.session.previousStep.active = True
 
   def setupManualIndexesGroupBox(self):
     self.zFrameRegistrationManualIndexesGroupBox = qt.QGroupBox("Use manual start/end indexes")
@@ -346,7 +354,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.retryZFrameRegistrationButton.clicked.connect(self.onRetryZFrameRegistrationButtonClicked)
     self.approveZFrameRegistrationButton.clicked.connect(self.onApproveZFrameRegistrationButtonClicked)
     self.runZFrameRegistrationButton.clicked.connect(self.onApplyZFrameRegistrationButtonClicked)
-
+    self.backButton.clicked.connect(self.onBackButtonClicked)
     self.showZFrameModelButton.connect('toggled(bool)', self.onShowZFrameModelToggled)
     self.showTemplateButton.connect('toggled(bool)', self.onShowZFrameTemplateToggled)
     self.showTemplatePathButton.connect('toggled(bool)', self.onShowTemplatePathToggled)

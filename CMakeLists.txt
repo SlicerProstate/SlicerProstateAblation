@@ -10,7 +10,7 @@ set(EXTENSION_DESCRIPTION "This extension provides support for prostate cryoabla
 #set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki")
 #set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki")
 set(EXTENSION_STATUS "alpha")
-set(EXTENSION_DEPENDS "SlicerDevelopmentToolbox")
+set(EXTENSION_DEPENDS "SlicerDevelopmentToolbox SlicerZFrameRegistration")
 
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)

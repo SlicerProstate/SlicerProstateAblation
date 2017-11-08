@@ -10,7 +10,6 @@ from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblati
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
-from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationGuidanceStepLogic(ProstateCryoAblationLogicBase): # make it the same as overview for now
 
@@ -23,12 +22,9 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
 
   NAME = "Guidance"
   LogicClass = ProstateCryoAblationGuidanceStepLogic
-
+  LayoutClass = qt.QVBoxLayout
   def __init__(self):
     self.notifyUserAboutNewData = True
-    iconPathDir = os.path.dirname(slicer.util.modulePath(ProstateCryoAblationConstants.MODULE_NAME))
-    self.finishStepIcon = Icons.start
-    self.backIcon = Icons.back
     super(ProstateCryoAblationGuidanceStep, self).__init__()
 
 
@@ -36,18 +32,9 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
     super(ProstateCryoAblationGuidanceStep, self).setup()
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
     self.addPlugin(self.targetingPlugin)
-    self.layout().addWidget(self.targetingPlugin)
-    self.setupNavigationButtons()
-
-
-  def setupNavigationButtons(self):
-    iconSize = qt.QSize(36, 36)
-    self.backButton = self.createButton("", icon=self.backIcon, iconSize=iconSize,
-                                        toolTip="Return to last step")
-    self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
-                                              toolTip="Confirm the targeting")
-    self.finishStepButton.setFixedHeight(45)
-    self.layout().addWidget(self.createHLayout([self.backButton, self.finishStepButton]))
+    self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
+    self.addNavigationButtons()
+    self.layout().addStretch(1)
 
   def onBackButtonClicked(self):
     if self.session.previousStep:
@@ -58,12 +45,12 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
 
   def setupConnections(self):
     super(ProstateCryoAblationGuidanceStep, self).setupConnections()
+    self.backButton.clicked.connect(self.onBackButtonClicked)
+    self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
 
   def addSessionObservers(self):
     super(ProstateCryoAblationGuidanceStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.NeedleGuidanceEvent, self.onNeedleGuidance)
-    self.backButton.clicked.connect(self.onBackButtonClicked)
-    self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
 
   def removeSessionEventObservers(self):
     ProstateCryoAblationStep.removeSessionEventObservers(self)

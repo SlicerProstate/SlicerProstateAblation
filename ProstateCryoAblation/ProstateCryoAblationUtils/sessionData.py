@@ -133,7 +133,7 @@ class SessionData(ModuleLogicMixin):
         self.initialVolume = self._loadOrGetFileData(directory, data["initialVolume"], slicer.util.loadVolume)
 
       if "tumorSegmentation" in data.keys():
-        self.segmentModelNode = self._loadOrGetFileData(directory, data["tumorSegmentation"], slicer.util.loadVolume)
+        self.segmentModelNode = self._loadOrGetFileData(directory, data["tumorSegmentation"], slicer.util.loadSegmentation)
 
       self.loadResults(data, directory) ## ?? why need to load twice
     return True
@@ -245,8 +245,9 @@ class SessionData(ModuleLogicMixin):
 
     def saveManualSegmentation():
       if self.segmentModelNode:
-        success, name = self.saveNodeData(self.segmentModelNode, outputDir, FileExtension.VTK, overwrite=True)
+        success, name = self.saveNodeData(self.segmentModelNode, outputDir, ".seg.nrrd", overwrite=True)
         self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
+        return name + ".seg.nrrd"
 
     def saveInitialTargets():
       success, name = self.saveNodeData(self.initialTargets, outputDir, FileExtension.FCSV,

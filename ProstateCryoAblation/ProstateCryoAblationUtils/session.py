@@ -25,7 +25,7 @@ from SlicerDevelopmentToolboxUtils.module.session import StepBasedSession
 class ProstateCryoAblationSession(StepBasedSession):
 
   IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.SkippedEvent
-  IncomingPreopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 110
+  #IncomingPreopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 110
 
   IncomingIntraopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 111
   NewImageSeriesReceivedEvent = SlicerDevelopmentToolboxEvents.NewImageDataReceivedEvent
@@ -60,14 +60,6 @@ class ProstateCryoAblationSession(StepBasedSession):
   ResultEvents = [ApprovedEvent, SkippedEvent, RejectedEvent]
 
   MODULE_NAME = constants.MODULE_NAME
-
-  @property
-  def preprocessedDirectory(self):
-    return os.path.join(self.directory, "Preprocessed") if self.directory else None
-
-  @property
-  def preopDICOMDirectory(self):
-    return os.path.join(self.directory, "DICOM", "Preop") if self.directory else None
 
   @property
   def intraopDICOMDirectory(self):
@@ -215,7 +207,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.data = SessionData()
     self.data.addEventObserver(self.data.NewResultCreatedEvent, self.onNewResultCreated)
     self.trainingMode = False
-    self.resetPreopDICOMReceiver()
     self.resetIntraopDICOMReceiver()
     self.loadableList = {}
     self.seriesList = []
@@ -251,7 +242,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     return slicer.util.selectedModule() != self.MODULE_NAME
 
   def isCaseDirectoryValid(self):
-    return os.path.exists(self.preopDICOMDirectory) and os.path.exists(self.intraopDICOMDirectory)
+    return os.path.exists(self.intraopDICOMDirectory)
 
   def isRunning(self):
     return not self.directory in [None, '']
@@ -271,11 +262,11 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.newCaseCreated = True
     self.resetAndInitializeMembers()
     self.directory = destination
-    self.createDirectory(self.preopDICOMDirectory)
     self.createDirectory(self.intraopDICOMDirectory)
-    self.createDirectory(self.preprocessedDirectory)
     self.createDirectory(self.outputDirectory)
-    self.startPreopDICOMReceiver()
+    self.data.usePreopData = False
+    self.startIntraopDICOMReceiver()
+    self.invokeEvent(self.IncomingDataSkippedEvent)
     self.newCaseCreated = False
     self.invokeEvent(self.NewCaseStartedEvent)
 
@@ -315,55 +306,17 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.clearData()
 
   def postProcessLoadedSessionData(self):
-    if self.data.usePreopData:
-      coverProstate = self.data.getMostRecentApprovedCoverProstateRegistration()
-      if coverProstate:
-        if not self.data.initialVolume:
-          self.data.initialVolume = coverProstate.volumes.moving if self.data.usePreopData else coverProstate.volumes.fixed
-        self.data.initialTargets = coverProstate.targets.original
-        self.data.preopLabel = coverProstate.labels.moving
-    self.steps[0].targetTablePlugin.currentTargets = self.data.initialTargets
+    self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+    self.steps[0].targetingPlugin.targetTablePlugin.visible = True
     if self.data.zFrameRegistrationResult:
       self._zFrameRegistrationSuccessful = True
     self.data.resumed = not self.data.completed
-    if self.data.usePreopData:
-      self.loadPreProcessedData()
-    else:
-      if self.data.initialTargets:
-        self.setupPreopLoadedTargets()
-      self.startIntraopDICOMReceiver()
-
-  def startPreopDICOMReceiver(self):
-    self.resetPreopDICOMReceiver()
-    self.preopDICOMReceiver = IncomingDataWindow(incomingDataDirectory=self.preopDICOMDirectory,
-                                                 skipText="No preoperative images available")
-    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.SkippedEvent,
-                                             self.onSkippingPreopDataReception)
-    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.CanceledEvent,
-                                             lambda caller, event: self.close())
-    self.preopDICOMReceiver.addEventObserver(SlicerDevelopmentToolboxEvents.FinishedEvent,
-                                             self.onPreopDataReceptionFinished)
-    self.preopDICOMReceiver.show()
-
-  def onSkippingPreopDataReception(self, caller, event):
-    self.data.usePreopData = False
+    if self.data.initialTargets:
+      self.setupLoadedTargets()
     self.startIntraopDICOMReceiver()
-    self.invokeEvent(self.IncomingDataSkippedEvent)
 
-  def onPreopDataReceptionFinished(self, caller, event):
-    self.data.usePreopData = True
-    self.startIntraopDICOMReceiver()
-    self.invokeEvent(self.IncomingPreopDataReceiveFinishedEvent)
-
-  def resetPreopDICOMReceiver(self):
-    self.preopDICOMReceiver = getattr(self, "preopDICOMReceiver", None)
-    if self.preopDICOMReceiver:
-      self.preopDICOMReceiver.hide()
-      self.preopDICOMReceiver.removeEventObservers()
-      self.preopDICOMReceiver = None
 
   def startIntraopDICOMReceiver(self):
-    self.resetPreopDICOMReceiver()
     logging.info("Starting DICOM Receiver for intra-procedural data")
     if not self.data.completed:
       self.resetIntraopDICOMReceiver()
@@ -520,39 +473,23 @@ class ProstateCryoAblationSession(StepBasedSession):
         return series
     return None
 
-  def loadPreProcessedData(self):
-    try:
-      self.loadPreopData(self.getFirstPreprocessedStudy(self.preprocessedDirectory))
-      self.startIntraopDICOMReceiver()
-    except PreProcessedDataError:
-      self.close(save=False)
-
-  def wasCasePreprocessed(self):
-    return False
-
   def loadCaseData(self):
     if not os.path.exists(os.path.join(self.outputDirectory, constants.JSON_FILENAME)):
-      if self.wasCasePreprocessed(self.preprocessedDirectory):
-        self.loadPreProcessedData()
-      else:
-        if len(os.listdir(self.preopDICOMDirectory)):
-          self.startPreopDICOMReceiver()
-        elif len(os.listdir(self.intraopDICOMDirectory)):
-          self.data.usePreopData = False
-          self.startIntraopDICOMReceiver()
-        else:
-          self.startPreopDICOMReceiver()
+      if len(os.listdir(self.intraopDICOMDirectory)):
+        self.data.usePreopData = False
+        self.startIntraopDICOMReceiver()
     else:
       self.openSavedSession()
 
   def openSavedSession(self):
     self.load()
 
-  def setupPreopLoadedTargets(self):
-    targets = self.data.initialTargets
-    ModuleWidgetMixin.setFiducialNodeVisibility(targets, show=True)
-    self.applyDefaultTargetDisplayNode(targets)
-    self.markupsLogic.JumpSlicesToNthPointInMarkup(targets.GetID(), 0)
+  def setupLoadedTargets(self):
+    if self.data.initialTargets:
+      targets = self.data.initialTargets
+      ModuleWidgetMixin.setFiducialNodeVisibility(targets, show=True)
+      self.applyDefaultTargetDisplayNode(targets)
+      self.markupsLogic.JumpSlicesToNthPointInMarkup(targets.GetID(), 0)
     # self.targetTable.selectRow(0)
     # self.updateDisplacementChartTargetSelectorTable()
 
@@ -578,19 +515,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     assert len(directoryNames) > 1
     return directoryNames[1]
 
-  def loadPreopData(self, directory):
-    message = self.loadProcessedData(directory)
-    logging.info(message)
-    if message or not self.loadT2Label() or not self.loadPreopVolume() or not self.loadPreopTargets():
-      self.invokeEvent(self.FailedPreprocessedEvent,
-                       "Loading preop data failed.\nMake sure that the correct directory structure is used."
-                       "\n\n Application expects a T2 volume, lesion segmentation and target(s). Do you want to "
-                       "open/revisit pre-processing for the current case?")
-    else:
-      self.data.usePreopData = True
-      self.setupPreopLoadedTargets()
-      self.invokeEvent(self.PreprocessingSuccessfulEvent)
-
   def loadProcessedData(self, directory):
     resourcesDir = os.path.join(directory, 'RESOURCES')
     logging.debug(resourcesDir)
@@ -607,17 +531,17 @@ class ProstateCryoAblationSession(StepBasedSession):
 
     self.data.initialTargetsPath = os.path.join(directory, 'Targets')
     seriesMap =[]
-    self.loadPreopImageAndLabel(seriesMap)
+    self.loadImageAndLabel(seriesMap)
 
-    if self.preopSegmentationPath is None:
+    if self.segmentationPath is None:
       message = "No segmentations found.\nMake sure that you used segment editor for segmenting the prostate first and using " \
-                "its output as the preop data input here."
+                "its output as the data input here."
       return message
     return None
 
-  def loadPreopImageAndLabel(self, seriesMap):
-    self.preopImagePath = None
-    self.preopSegmentationPath = None
+  def loadImageAndLabel(self, seriesMap):
+    self.imagePath = None
+    self.segmentationPath = None
     segmentedColorName = self.getSetting("Segmentation_Color_Name")
 
     for series in seriesMap:
@@ -638,43 +562,20 @@ class ProstateCryoAblationSession(StepBasedSession):
 
           logging.debug(' LOCATION OF SEGMENTATION path : ' + segmentationPath)
 
-          self.preopImagePath = seriesMap[series]['NRRDLocation']
-          self.preopSegmentationPath = segmentationPath
+          self.imagePath = seriesMap[series]['NRRDLocation']
+          self.segmentationPath = segmentationPath
           break
 
   def loadT2Label(self):
     if self.data.initialLabel:
       return True
-    mostRecentFilename = self.getMostRecentLesionSegmentation(self.preopSegmentationPath)
+    mostRecentFilename = self.getMostRecentLesionSegmentation(self.segmentationPath)
     success = False
     if mostRecentFilename:
-      filename = os.path.join(self.preopSegmentationPath, mostRecentFilename)
+      filename = os.path.join(self.segmentationPath, mostRecentFilename)
       success, self.data.initialLabel = slicer.util.loadLabelVolume(filename, returnNode=True)
       if success:
         self.data.initialLabel.SetName('t2-label')
-    return success
-
-  def loadPreopVolume(self):
-    if self.data.initialVolume:
-      return True
-    success, self.data.initialVolume = slicer.util.loadVolume(self.preopImagePath, returnNode=True)
-    if success:
-      self.data.initialVolume.SetName('VOLUME-PREOP')
-    return success
-
-  def loadPreopTargets(self):
-    if self.data.initialTargets:
-      return True
-    if not os.path.exists(self.data.initialTargetsPath):
-      return False
-    mostRecentTargets = self.getMostRecentTargetsFile(self.data.initialTargetsPath)
-    success = False
-    if mostRecentTargets:
-      filename = os.path.join(self.data.initialTargetsPath, mostRecentTargets)
-      success, self.data.initialTargets = slicer.util.loadMarkupsFiducialList(filename, returnNode=True)
-      if success:
-        self.data.initialTargets.SetName('targets-PREOP')
-        self.data.initialTargets.SetLocked(True)
     return success
 
   def getMostRecentLesionSegmentation(self, path):

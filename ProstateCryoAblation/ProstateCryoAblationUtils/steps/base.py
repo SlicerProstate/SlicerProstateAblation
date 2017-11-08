@@ -1,11 +1,11 @@
-import vtk
+import vtk, qt
 from SlicerDevelopmentToolboxUtils.decorators import beforeRunProcessEvents, onModuleSelected
 from SlicerDevelopmentToolboxUtils.module.base import WidgetBase
 from SlicerDevelopmentToolboxUtils.module.logic import SessionBasedLogicBase
 
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
 from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
-
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationWidgetBase(WidgetBase):
 
@@ -137,9 +137,19 @@ class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
 
   def __init__(self):
     self.viewSettingButtons = []
+    iconSize = qt.QSize(36, 36)
+    self.finishStepIcon = Icons.start
+    self.backIcon = Icons.back
+    self.backButton = self.createButton("", icon=self.backIcon, iconSize=iconSize,
+                                        toolTip="Return to last step")
+    self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
+                                              toolTip="Confirm the targeting")
     self.parameterNode.SetAttribute("Name", self.NAME)
     super(ProstateCryoAblationStep, self).__init__()
 
+  def addNavigationButtons(self):
+    self.finishStepButton.setFixedHeight(45)
+    self.layout().addWidget(self.createHLayout([self.backButton, self.finishStepButton]))
 
 class ProstateCryoAblationLogicBase(SessionBasedLogicBase):
 
