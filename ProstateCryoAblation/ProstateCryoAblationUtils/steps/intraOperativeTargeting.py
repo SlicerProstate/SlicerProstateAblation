@@ -24,6 +24,18 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   AFFECTEDAREA_NAME = "AffectedArea"
   LogicClass = ProstateCryoAblationTargetingStepLogic
   LayoutClass = qt.QVBoxLayout
+  HIDENEEDLE = 0
+  ICESEED = 1
+  ICEROD = 2
+
+  @property
+  def NeedleType(self):
+    return self._NeedleType
+
+  @NeedleType.setter
+  def NeedleType(self, type):
+    self._NeedleType = type
+
   def __init__(self):
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self.affectiveZoneIcon = self.createIcon('icon-needle.png')
@@ -36,6 +48,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.resetAndInitialize()
     self.needleModelNode = None
     self.affectedAreaModelNode = None
+    self._NeedleType = self.ICESEED
     self.clearOldNodesByName(self.NEEDLE_NAME)
     self.checkAndCreateNeedleModelNode()
   
@@ -122,7 +135,27 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.backButton.clicked.connect(self.onBackButtonClicked)
     self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
     self.showAffectiveZoneButton.connect('toggled(bool)', self.onShowAffectiveZoneToggled)
-    
+
+  def GetIceBallRadius(self):
+    needleRadius =[0.0]*3
+    if self.NeedleType == self.HIDENEEDLE:
+      needleRadius[0] = 0.0
+      needleRadius[1] = 0.0
+      needleRadius[2] = 0.0
+    elif self.NeedleType == self.ICESEED:
+      needleRadius[0] = 20.0 / 2.0
+      needleRadius[1] = 20.0 / 2.0
+      needleRadius[2] = 25.0 / 2.0
+    elif self.NeedleType == self.ICEROD:
+      needleRadius[0] = 25.0 / 2.0
+      needleRadius[1] = 25.0 / 2.0
+      needleRadius[2] = 35.0 / 2.0
+    else:
+      needleRadius[0] = 20.0 / 2.0
+      needleRadius[1] = 20.0 / 2.0
+      needleRadius[2] = 25.0 / 2.0
+    return needleRadius
+
   def onShowAffectiveZoneToggled(self, checked):
     self.showNeedlePath = checked
     currentGuidanceComputation = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation
@@ -133,23 +166,67 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)  
       needleModelAppend = vtk.vtkAppendPolyData()
       affectedBallAreaAppend = vtk.vtkAppendPolyData()
-      affectedBallAreaRadius = 9.0 # unit mm
-      offsetFromTip = 2.0 #unit mm
+      zFrameTransformMatrix = self.session.data.zFrameRegistrationResult.transform.GetMatrixTransformToParent()
+      # The offset and ellipsoid parameters are taken from the following source code
+      # http://viewvc.slicer.org/viewvc.cgi/NAMICSandBox/trunk/IGTLoadableModules/ProstateNav/TransPerinealProstateCryoTemplate/vtkMRMLTransPerinealProstateCryoTemplateNode.cxx?revision=8043&view=markup
+      affectedBallAreaRadius = self.GetIceBallRadius() # unit mm
+      offsetFromTip = 5.0 #unit mm
+      coneHeight = 5.0
       for targetIndex in range(currentGuidanceComputation.targetList.GetNumberOfFiducials()):
         targetPosition = [0.0,0.0,0.0]
         currentGuidanceComputation.targetList.GetNthFiducialPosition(targetIndex, targetPosition)
         (start, end, indexX, indexY, depth, inRange) = currentGuidanceComputation.computeNearestPath(targetPosition)
         needleDirection = (numpy.array(end) - numpy.array(start))/numpy.linalg.norm(numpy.array(end)-numpy.array(start))
-        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(start, start+depth*needleDirection, radius=1.5, numSides=6)
-        affectedBallArea = vtk.vtkSphereSource()
-        affectedBallArea.SetRadius(affectedBallAreaRadius)
-        affectedBallArea.SetPhiResolution(50)
-        affectedBallArea.SetThetaResolution(50)
-        affectedBallArea.SetCenter(start+(depth-offsetFromTip)*needleDirection)
-        affectedBallArea.Update()
+        cone = vtk.vtkConeSource()
+        cone.SetRadius(1.5)
+        cone.SetResolution(6)
+        cone.SetHeight(coneHeight)
+        cone.CappingOff()
+        cone.Update()
+        transform = vtk.vtkTransform()
+        transform.RotateY(-90)
+        transform.RotateX(30)
+        transform.Translate(-coneHeight / 2, 0.0, 0.0)
+        tFilter0 = vtk.vtkTransformPolyDataFilter()
+        tFilter0.SetInputData(cone.GetOutput())
+        tFilter0.SetTransform(transform)
+        tFilter0.Update()
+        translatePart = start+depth*needleDirection
+        for index, posElement in enumerate(translatePart):
+          zFrameTransformMatrix.SetElement(index, 3, posElement)
+        transform.SetMatrix(zFrameTransformMatrix)
+        tFilter1 = vtk.vtkTransformPolyDataFilter()
+        tFilter1.SetTransform(transform)
+        tFilter1.SetInputData(tFilter0.GetOutput())
+        tFilter1.Update()
+        needleModelAppend.AddInputData(tFilter1.GetOutput())
+        needleModelAppend.Update()
+        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(start, start+(depth-coneHeight)*needleDirection, radius=1.5, numSides=6)
         needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
         needleModelAppend.Update()
-        affectedBallAreaAppend.AddInputData(affectedBallArea.GetOutput())
+        #End of needle model
+        #--------------
+        #--------------
+        #Begin of affectedBallArea
+        affectedBallArea = vtk.vtkParametricEllipsoid()
+        affectedBallArea.SetXRadius(affectedBallAreaRadius[0])
+        affectedBallArea.SetYRadius(affectedBallAreaRadius[1])
+        affectedBallArea.SetZRadius(affectedBallAreaRadius[2])
+        affectedBallAreaSource = vtk.vtkParametricFunctionSource()
+        affectedBallAreaSource.SetParametricFunction(affectedBallArea)
+        affectedBallAreaSource.SetScalarModeToV()
+        affectedBallAreaSource.Update()
+        translatePart = start+(depth+offsetFromTip-affectedBallAreaRadius[2])*needleDirection
+        for index, posElement in enumerate(translatePart):
+          zFrameTransformMatrix.SetElement(index, 3, posElement)
+        transform.SetMatrix(zFrameTransformMatrix)
+        tFilter2 = vtk.vtkTransformPolyDataFilter()
+        tFilter2.SetTransform(transform)
+        tFilter2.SetInputData(affectedBallAreaSource.GetOutput())
+        tFilter2.Update()
+        #affectedBallArea.SetCenter(start+(depth-offsetFromTip)*needleDirection)
+
+        affectedBallAreaAppend.AddInputData(tFilter2.GetOutput())
         affectedBallAreaAppend.Update()
         #self.templatePathOrigins.append([row[0], row[1], row[2], 1.0])
         #self.templatePathVectors.append([n[0], n[1], n[2], 1.0])
@@ -167,9 +244,9 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
         needleModelAppend.Update()
       """
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
-      self.needleModelNode.GetDisplayNode().SetColor(0.0,1.0,0.5)
+      self.needleModelNode.GetDisplayNode().SetColor(1.0,0.0,0.0)
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
-      self.affectedAreaModelNode.GetDisplayNode().SetColor(1,0.0,0.0)
+      self.affectedAreaModelNode.GetDisplayNode().SetColor(0.0,1.0,0.0)
       #self.needleModelNode.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID()) 
     pass  
 
@@ -203,6 +280,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     if not self.session.fixedVolume:
       return
     self.updateAvailableLayouts()
+    self.setupFourUpView(self.session.currentSeriesVolume)
     if not self.session.data.segmentModelNode:
       # Create segmentation
       self.session.data.segmentModelNode = slicer.vtkMRMLSegmentationNode()

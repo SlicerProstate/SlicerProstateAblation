@@ -245,9 +245,11 @@ class SessionData(ModuleLogicMixin):
 
     def saveManualSegmentation():
       if self.segmentModelNode:
-        success, name = self.saveNodeData(self.segmentModelNode, outputDir, ".seg.nrrd", overwrite=True)
-        self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
-        return name + ".seg.nrrd"
+        if self.segmentModelNode.GetSegmentation().GetNumberOfSegments()>0:
+          success, name = self.saveNodeData(self.segmentModelNode, outputDir, ".seg.nrrd", overwrite=True)
+          self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
+          return name + ".seg.nrrd"
+      return None
 
     def saveInitialTargets():
       success, name = self.saveNodeData(self.initialTargets, outputDir, FileExtension.FCSV,
