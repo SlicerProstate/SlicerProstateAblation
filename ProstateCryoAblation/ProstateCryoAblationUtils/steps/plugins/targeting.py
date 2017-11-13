@@ -29,20 +29,21 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
                                                 ICON_SIZE=qt.QSize(36, 36))
     self.fiducialsWidget.addEventObserver(self.fiducialsWidget.StartedEvent, self.onTargetingStarted)
     self.fiducialsWidget.addEventObserver(self.fiducialsWidget.FinishedEvent, self.onTargetingFinished)
+    self.fiducialsWidget.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
     self.targetingGroupBoxLayout.addRow(self.targetTablePlugin)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget.buttons)
     self.layout().addWidget(self.targetingGroupBox, 1, 0, 2, 2)
 
-  def noPreopAndTargetsWereNotDefined(self):
-    return (not self.session.data.usePreopData and not self.session.movingTargets) or self.session.retryMode
+  def targetsWereNotDefined(self):
+    return (not self.session.movingTargets) or self.session.retryMode
 
   def onActivation(self):
     super(ProstateCryoAblationTargetingPlugin, self).onActivation()
     self.fiducialsWidget.show()
     self.targetTablePlugin.visible = False
 
-    if not self.noPreopAndTargetsWereNotDefined():
+    if not self.targetsWereNotDefined():
       self.fiducialsWidget.visible = False
       self.fiducialsWidget.currentNode = self.session.movingTargets
       self.targetTablePlugin.visible = True
@@ -55,15 +56,8 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.fiducialsWidget.reset()
     self.removeSliceAnnotations()
 
-  def startTargeting(self):
-    self.fiducialsWidget.startPlacing()
-
-  def onTargetingStarted(self, caller, event):
-    self.addSliceAnnotations()
-    self.fiducialsWidget.show()
-    self.targetTablePlugin.visible = False
-    self.setupFourUpView(self.session.currentSeriesVolume, clearLabels=False)
-    self.invokeEvent(self.TargetingStartedEvent)
+  #def startTargeting(self):
+  #  self.fiducialsWidget.startPlacing()
 
   def addSliceAnnotations(self):
     self.removeSliceAnnotations()
@@ -78,6 +72,26 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     for annotation in self.sliceAnnotations:
       annotation.remove()
     self.sliceAnnotations = []
+
+  def onFiducialListSelected(self, node):
+    if node:
+      self.fiducialsWidget.currentNode = node
+      self.fiducialsWidget.currentNode.AddObserver(self.fiducialsWidget.currentNode.MarkupAddedEvent,
+                                                   self.onEndTargetPlacement)
+
+  def onEndTargetPlacement(self,interactionNode = None, event = None):
+    currentTargetIndex = self.fiducialsWidget.currentNode.GetNumberOfFiducials()-1
+    guidance= self.targetTablePlugin.targetTableModel.getOrCreateNewGuidanceComputation(self.fiducialsWidget.currentNode)
+    needleSnapPosition = guidance.getNeedleEndPos(currentTargetIndex)
+    self.fiducialsWidget.currentNode.SetNthFiducialPositionFromArray(currentTargetIndex,needleSnapPosition)
+    pass
+
+  def onTargetingStarted(self, caller, event):
+    self.addSliceAnnotations()
+    self.fiducialsWidget.show()
+    self.targetTablePlugin.visible = False
+    self.setupFourUpView(self.session.currentSeriesVolume, clearLabels=False)
+    self.invokeEvent(self.TargetingStartedEvent)
 
   def onTargetingFinished(self, caller, event):
     self.removeSliceAnnotations()

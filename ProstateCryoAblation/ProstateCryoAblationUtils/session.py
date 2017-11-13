@@ -306,14 +306,27 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.clearData()
 
   def postProcessLoadedSessionData(self):
-    self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
-    self.steps[0].targetingPlugin.targetTablePlugin.visible = True
     if self.data.zFrameRegistrationResult:
-      self._zFrameRegistrationSuccessful = True
+      self.setupLoadedTransform()
     self.data.resumed = not self.data.completed
     if self.data.initialTargets:
+      self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+      self.steps[0].targetingPlugin.targetTablePlugin.visible = True
+      self.steps[2].targetingPlugin.targetTablePlugin.targetTableModel.targetList = self.data.initialTargets
       self.setupLoadedTargets()
     self.startIntraopDICOMReceiver()
+
+
+  def setupLoadedTransform(self):
+    self._zFrameRegistrationSuccessful = True
+    self.steps[1].applyZFrameTransform()
+
+  def setupLoadedTargets(self):
+    if self.data.initialTargets:
+      targets = self.data.initialTargets
+      ModuleWidgetMixin.setFiducialNodeVisibility(targets, show=True)
+      self.applyDefaultTargetDisplayNode(targets)
+      self.markupsLogic.JumpSlicesToNthPointInMarkup(targets.GetID(), 0)
 
 
   def startIntraopDICOMReceiver(self):
@@ -483,15 +496,6 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def openSavedSession(self):
     self.load()
-
-  def setupLoadedTargets(self):
-    if self.data.initialTargets:
-      targets = self.data.initialTargets
-      ModuleWidgetMixin.setFiducialNodeVisibility(targets, show=True)
-      self.applyDefaultTargetDisplayNode(targets)
-      self.markupsLogic.JumpSlicesToNthPointInMarkup(targets.GetID(), 0)
-    # self.targetTable.selectRow(0)
-    # self.updateDisplacementChartTargetSelectorTable()
 
   def applyDefaultTargetDisplayNode(self, targetNode, new=False):
     displayNode = None if new else targetNode.GetDisplayNode()

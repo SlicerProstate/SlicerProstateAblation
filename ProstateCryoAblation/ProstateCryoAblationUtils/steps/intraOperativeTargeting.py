@@ -41,6 +41,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.affectiveZoneIcon = self.createIcon('icon-needle.png')
     self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.segmentationEditor.setMRMLScene(slicer.mrmlScene)
+    self.segmentationEditorNoneButton = None
+    self.segmentationEditorShow3DButton = None
     segmentEditorNode = slicer.vtkMRMLSegmentEditorNode()
     slicer.mrmlScene.AddNode(segmentEditorNode)
     self.segmentationEditor.setMRMLSegmentEditorNode(segmentEditorNode)
@@ -84,9 +86,15 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.layout().addWidget(self.targetingPlugin)
 
   def setupSegmentationWidget(self):
-    #self.segmentationEditor.masterVolumeNodeSelectorVisible=False
-    #self.segmentationEditor.segmentationNodeSelectorVisible = False
     self.layout().addWidget(self.segmentationEditor)
+    for child in self.segmentationEditor.children():
+      if child.className() == 'QGroupBox':
+        if child.title == 'Effects':
+          self.segmentationEditorNoneButton = child.children()[1]
+      if child.className() == 'ctkMenuButton':
+        if child.text == ' Show 3D':
+          self.segmentationEditorShow3DButton = child
+
 
   def setupAdditionalViewSettingButtons(self):
     iconSize = qt.QSize(24, 24)
@@ -103,11 +111,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def onFinishStepButtonClicked(self):
     #To do, deactivate the drawing buttons when finish button clicked
     self.session.data.segmentModelNode = self.segmentationEditor.segmentationNode()
-    for child in self.segmentationEditor.children():
-      if child.className() == 'QGroupBox':
-        if child.title == 'Effects':
-          child.children()[1].click()
-          break
+    self.segmentationEditorNoneButton.click()
     self.session.previousStep.active = True
     """
     if not self.session.data.usePreopData and not self.session.retryMode:
@@ -159,7 +163,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def onShowAffectiveZoneToggled(self, checked):
     self.showNeedlePath = checked
     currentGuidanceComputation = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation
-    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and currentGuidanceComputation.targetList.GetNumberOfFiducials():
+    if currentGuidanceComputation and self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and currentGuidanceComputation.targetList.GetNumberOfFiducials():
       ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked) 
       ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
@@ -247,7 +251,15 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       self.needleModelNode.GetDisplayNode().SetColor(1.0,0.0,0.0)
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
       self.affectedAreaModelNode.GetDisplayNode().SetColor(0.0,1.0,0.0)
-      #self.needleModelNode.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID()) 
+
+    """
+    Show segmentations
+    """
+    if not self.segmentationEditorShow3DButton.isChecked() == checked:
+      self.segmentationEditorShow3DButton.checked = checked
+    if self.session.data.segmentModelNode:
+      if not self.session.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
+        self.session.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
     pass  
 
   @vtk.calldata_type(vtk.VTK_STRING)
@@ -337,10 +349,15 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
 
   def onTargetingStarted(self, caller, event):
+    if self.showAffectiveZoneButton.isChecked():
+      self.showAffectiveZoneButton.click()
+    if self.targetingPlugin.targetTablePlugin.currentTargets:
+      self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(False)
     self.backButton.enabled = False
     pass
 
   def onTargetingFinished(self, caller, event):
+    self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(True)
     self.finishStepButton.enabled = True
     self.backButton.enabled = True
     pass

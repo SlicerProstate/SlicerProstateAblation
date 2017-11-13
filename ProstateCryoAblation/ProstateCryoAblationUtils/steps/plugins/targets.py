@@ -198,6 +198,11 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
       self.calculateZFrameHoleAndDepth(index)
     self.invokeEvent(vtk.vtkCommand.ModifiedEvent)
 
+  def getNeedleEndPos(self, index):
+    if index not in self.computedHoles.keys():
+      self.calculateZFrameHoleAndDepth(index)
+    return self.needleStartEndPositions[index][1]
+
   def getZFrameHole(self, index):
     if index not in self.computedHoles.keys():
       self.calculateZFrameHoleAndDepth(index)
@@ -221,7 +226,8 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
     targetPosition = self.getTargetPosition(self.targetList, index)
     (start, end, indexX, indexY, depth, inRange) = self.computeNearestPath(targetPosition)
     logging.debug("start:{}, end:{}, indexX:{}, indexY:{}, depth:{}, inRange:{}".format(start, end, indexX, indexY, depth, inRange))
-    self.needleStartEndPositions[index] = (start, end)
+    needleDirection = (numpy.array(end) - numpy.array(start)) / numpy.linalg.norm(numpy.array(end) - numpy.array(start))
+    self.needleStartEndPositions[index] = (start, start + depth * needleDirection)
     self.computedHoles[index] = [indexX, indexY]
     self.computedDepth[index] = [inRange, round(depth/10, 1)]
 
@@ -255,8 +261,6 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
       if 0 < minDepth < self.zFrameRegistration.templateMaxDepth[minIndex]:
         inRange = True
         needleStart, needleEnd = self.getNeedleStartEndPointFromPathOrigins(minIndex)
-      # else:
-      #   self.zFrameRegistration.removeNeedleModelNode()
 
     return needleStart, needleEnd, indexX, indexY, minDepth, inRange
 
