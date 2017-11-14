@@ -271,9 +271,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.intraopSeriesSelector.setCurrentIndex(-1)
     self.intraopSeriesSelector.blockSignals(False)
     index = -1
-    #if not self.session.data.getMostRecentApprovedCoverProstateRegistration():
-    #  substring = self.getSetting("COVER_TEMPLATE") \
-    #    if not self.session.zFrameRegistrationSuccessful else self.getSetting("COVER_PROSTATE")
     for item in list(reversed(range(len(self.session.seriesList)))):
       series = self._seriesModel.item(item).text()
       if substring in seriesTypeManager.getSeriesType(series):

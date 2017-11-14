@@ -269,10 +269,13 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.clearData()
 
   def postProcessLoadedSessionData(self):
+    for step in self.steps:
+      step.resetAndInitialize()
     if self.data.zFrameRegistrationResult:
       self.setupLoadedTransform()
     self.data.resumed = not self.data.completed
     if self.data.initialTargets:
+      self.movingTargets = self.data.initialTargets
       self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
       self.steps[0].targetingPlugin.targetTablePlugin.visible = True
       self.steps[2].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets

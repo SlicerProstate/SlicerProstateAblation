@@ -146,6 +146,9 @@ class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
     self.finishStepButton.setFixedHeight(45)
     self.layout().addWidget(self.createHLayout([self.backButton, self.finishStepButton]))
 
+  def resetAndInitialize(self):
+    pass
+
 class ProstateCryoAblationLogicBase(SessionBasedLogicBase):
 
   MODULE_NAME = constants.MODULE_NAME

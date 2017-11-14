@@ -80,10 +80,11 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
                                                    self.onEndTargetPlacement)
 
   def onEndTargetPlacement(self,interactionNode = None, event = None):
-    currentTargetIndex = self.fiducialsWidget.currentNode.GetNumberOfFiducials()-1
-    guidance= self.targetTablePlugin.targetTableModel.getOrCreateNewGuidanceComputation(self.fiducialsWidget.currentNode)
-    needleSnapPosition = guidance.getNeedleEndPos(currentTargetIndex)
-    self.fiducialsWidget.currentNode.SetNthFiducialPositionFromArray(currentTargetIndex,needleSnapPosition)
+    if self.fiducialsWidget.currentNode:
+      currentTargetIndex = self.fiducialsWidget.currentNode.GetNumberOfFiducials()-1
+      guidance= self.targetTablePlugin.targetTableModel.getOrCreateNewGuidanceComputation(self.fiducialsWidget.currentNode)
+      needleSnapPosition = guidance.getNeedleEndPos(currentTargetIndex)
+      self.fiducialsWidget.currentNode.SetNthFiducialPositionFromArray(currentTargetIndex,needleSnapPosition)
     pass
 
   def onTargetingStarted(self, caller, event):
