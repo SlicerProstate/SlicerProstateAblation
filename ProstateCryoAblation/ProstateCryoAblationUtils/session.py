@@ -312,7 +312,10 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self.data.initialTargets:
       self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
       self.steps[0].targetingPlugin.targetTablePlugin.visible = True
-      self.steps[2].targetingPlugin.targetTablePlugin.targetTableModel.targetList = self.data.initialTargets
+      self.steps[2].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+      self.steps[2].targetingPlugin.targetTablePlugin.visible = True
+      self.steps[3].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+      self.steps[3].targetingPlugin.targetTablePlugin.visible = True
       self.setupLoadedTargets()
     self.startIntraopDICOMReceiver()
 
@@ -627,6 +630,8 @@ class ProstateCryoAblationSession(StepBasedSession):
     elif self.seriesTypeManager.isCoverTemplate(self.currentSeries):
       event = self.InitiateZFrameCalibrationEvent
     elif self.seriesTypeManager.isGuidance(self.currentSeries):
+      event = self.NeedleGuidanceEvent
+    else:
       event = self.NeedleGuidanceEvent
     if event:
       self.invokeEvent(event, callData)

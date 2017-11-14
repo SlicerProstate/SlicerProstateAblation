@@ -68,7 +68,6 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
     self.logic.GuidanceVolume = None
 
   def onNeedleGuidance(self, caller, event):
-    print "need guidance in action"
     self.logic.GuidanceVolume = self.session.currentSeriesVolume
     self.active = True
     pass

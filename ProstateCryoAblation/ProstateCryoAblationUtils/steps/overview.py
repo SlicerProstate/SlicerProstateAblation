@@ -77,7 +77,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
     self.addPlugin(self.targetingPlugin)
-    self.targetingPlugin.currentTargets = self.session.movingTargets
+    self.targetingPlugin.targetTablePlugin.currentTargets = self.session.movingTargets
     self.layout().addWidget(self.caseManagerPlugin)
     self.layout().addWidget(self.trainingPlugin)
     self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
@@ -143,7 +143,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       self.changeSeriesTypeButton.setSeries(selectedSeries)
     colorStyle = self.session.getColorForSelectedSeries(self.intraopSeriesSelector.currentText)
     self.intraopSeriesSelector.setStyleSheet("QComboBox{%s} QToolTip{background-color: white;}" % colorStyle)
-
+  """
   def configureViewersForSelectedIntraopSeries(self, selectedSeries):
     if self.session.data.registrationResultWasApproved(selectedSeries) or \
             self.session.data.registrationResultWasRejected(selectedSeries):
@@ -166,6 +166,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       if not self.session.data.registrationResultWasSkipped(selectedSeries):
         self.regResultsPlugin.cleanup()
       self.targetingPlugin.currentTargets = None
+  """
 
   def setIntraopSeriesButtons(self, trackingPossible, selectedSeries):
     trackingPossible = trackingPossible and not self.session.data.completed
@@ -339,8 +340,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.redSliceNode.RotateToVolumePlane(self.session.data.initialVolume)
     self.redSliceNode.SetUseLabelOutline(True)
     self.redCompositeNode.SetLabelOpacity(1)
-    self.targetingPlugin.currentTargets = self.session.data.initialTargets
-    # self.logic.centerViewsToProstate()
+    self.targetingPlugin.targetTablePlugin.currentTargets = self.session.data.initialTargets
 
   def promptUserAndApplyBiasCorrectionIfNeeded(self):
     if not self.session.data.resumed and not self.session.data.completed:

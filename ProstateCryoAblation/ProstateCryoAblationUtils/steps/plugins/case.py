@@ -104,6 +104,8 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
   def onCreateNewCaseButtonClicked(self):
     if not self.checkAndWarnUserIfCaseInProgress():
       return
+    if self.session.isRunning():
+      self.onCloseCaseButtonClicked()
     self.caseDialog = NewCaseSelectionNameWidget(self.caseRootDir)
     selectedButton = self.caseDialog.exec_()
     if selectedButton == qt.QMessageBox.Ok:

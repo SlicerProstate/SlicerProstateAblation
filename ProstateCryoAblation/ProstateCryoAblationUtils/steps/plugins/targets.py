@@ -179,6 +179,7 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
     self.zFrameRegistration = ProstateCryoAblationZFrameRegistrationStepLogic()
     self.targetList = targetList
     self.observer = self.targetList.AddObserver(self.targetList.PointModifiedEvent, self.calculate)
+    self.observer = self.targetList.AddObserver(self.targetList.MarkupRemovedEvent, self.calculate)
     self.reset()
     self.calculate()
 
@@ -192,8 +193,9 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
     self.computedDepth = {}
 
   def calculate(self, caller=None, event=None):
-    if not self.targetList or not self.session.zFrameRegistrationSuccessful:
+    if not self.targetList:
       return
+    self.reset()
     for index in range(self.targetList.GetNumberOfFiducials()):
       self.calculateZFrameHoleAndDepth(index)
     self.invokeEvent(vtk.vtkCommand.ModifiedEvent)

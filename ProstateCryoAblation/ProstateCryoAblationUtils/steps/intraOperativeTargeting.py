@@ -67,6 +67,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       self.affectedAreaModelNode = ModuleLogicMixin.createModelNode(self.AFFECTEDAREA_NAME)
       ModuleLogicMixin.createAndObserveDisplayNode(self.affectedAreaModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
       self.affectedAreaModelNode.GetDisplayNode().SetOpacity(0.5)
+
   def resetAndInitialize(self):
     self.session.retryMode = False
 
@@ -248,8 +249,12 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
         needleModelAppend.Update()
       """
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
-      self.needleModelNode.GetDisplayNode().SetColor(1.0,0.0,0.0)
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
+      if self.needleModelNode.GetDisplayNode() is None:
+        self.needleModelNode.CreateDefaultDisplayNodes()
+      if self.affectedAreaModelNode.GetDisplayNode() is None:
+        self.affectedAreaModelNode.CreateDefaultDisplayNodes()
+      self.needleModelNode.GetDisplayNode().SetColor(1.0, 0.0, 0.0)
       self.affectedAreaModelNode.GetDisplayNode().SetColor(0.0,1.0,0.0)
 
     """
@@ -258,6 +263,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     if not self.segmentationEditorShow3DButton.isChecked() == checked:
       self.segmentationEditorShow3DButton.checked = checked
     if self.session.data.segmentModelNode:
+      if self.session.data.segmentModelNode.GetDisplayNode() is None:
+        self.session.data.segmentModelNode.CreateDefaultDisplayNodes()
       if not self.session.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
         self.session.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
     pass  
@@ -298,9 +305,9 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       self.session.data.segmentModelNode = slicer.vtkMRMLSegmentationNode()
       slicer.mrmlScene.AddNode(self.session.data.segmentModelNode)
       self.session.data.segmentModelNode.CreateDefaultDisplayNodes()  # only needed for display
+      self.session.data.segmentModelNode.CreateDefaultStorageNode()
       self.session.data.segmentModelNode.SetReferenceImageGeometryParameterFromVolumeNode(self.session.currentSeriesVolume)
       self.session.data.segmentModelNode.SetName("IntraOpSegmentation")
-      slicer.mrmlScene.AddNode(self.session.data.segmentModelNode)
     self.segmentationEditor.setSegmentationNode(self.session.data.segmentModelNode)
     self.segmentationEditor.setMasterVolumeNode(self.session.currentSeriesVolume)
     super(ProstateCryoAblationTargetingStep, self).onActivation()

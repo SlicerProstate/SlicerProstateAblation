@@ -97,6 +97,10 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
   def onIncomingDataSkipped(self, caller, event):
     self.simulateIntraopPhaseButton.enabled = True
 
+  def onNewCaseStarted(self, caller, event):
+    self.simulateIntraopPhaseButton.enabled = True
+    pass
+
   @vtk.calldata_type(vtk.VTK_STRING)
   def onCaseClosed(self, caller, event, callData):
     self.simulateIntraopPhaseButton.enabled = False
