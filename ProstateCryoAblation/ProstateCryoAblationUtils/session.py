@@ -2,7 +2,7 @@ import os, logging
 import vtk, ctk, ast
 
 import slicer
-from sessionData import SessionData, RegistrationResult, RegistrationTypeData
+from sessionData import SessionData
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
 from helpers import SeriesTypeManager
 
@@ -12,21 +12,16 @@ from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS, FileExtension, ST
 from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
 from SlicerDevelopmentToolboxUtils.helpers import SmartDICOMReceiver
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin
-from SlicerDevelopmentToolboxUtils.widgets import IncomingDataWindow, CustomStatusProgressbar
-from SlicerDevelopmentToolboxUtils.decorators import logmethod, singleton
+from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar
+from SlicerDevelopmentToolboxUtils.decorators import singleton
 from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse, onReturnProcessEvents, onExceptionReturnNone
 from SlicerDevelopmentToolboxUtils.module.session import StepBasedSession
-
-
-#from zFrameRegistration import ProstateCryoAblationZFrameRegistrationStepLogic
 
 
 @singleton
 class ProstateCryoAblationSession(StepBasedSession):
 
   IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.SkippedEvent
-  #IncomingPreopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 110
-
   IncomingIntraopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 111
   NewImageSeriesReceivedEvent = SlicerDevelopmentToolboxEvents.NewImageDataReceivedEvent
 
@@ -49,15 +44,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   NeedleGuidanceEvent = vtk.vtkCommand.UserEvent + 164
 
-  CurrentResultChangedEvent = vtk.vtkCommand.UserEvent + 234
-
-  ApprovedEvent = RegistrationResult.ApprovedEvent
-  SkippedEvent = RegistrationResult.SkippedEvent
-  RejectedEvent = RegistrationResult.RejectedEvent
-
   SeriesTypeManuallyAssignedEvent = SeriesTypeManager.SeriesTypeManuallyAssignedEvent
-
-  ResultEvents = [ApprovedEvent, SkippedEvent, RejectedEvent]
 
   MODULE_NAME = constants.MODULE_NAME
 
@@ -93,24 +80,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self._zFrameRegistrationSuccessful:
       self.save()
       self.invokeEvent(self.ZFrameRegistrationSuccessfulEvent)
-
-  @property
-  def currentResult(self):
-    return self._getCurrentResult()
-
-  @onExceptionReturnNone
-  def _getCurrentResult(self):
-    return self.data.registrationResults[self._currentResult]
-
-  @currentResult.setter
-  def currentResult(self, series):
-    if self.currentResult and self.currentResult.name == series:
-      return
-    if self.currentResult is not None:
-      self.currentResult.removeEventObservers()
-    self._currentResult = series
-    self.save()
-    self.invokeEvent(self.CurrentResultChangedEvent)
 
   @property
   def currentSeries(self):
@@ -155,39 +124,39 @@ class ProstateCryoAblationSession(StepBasedSession):
   @property
   def movingTargets(self):
     self._movingTargets = getattr(self, "_movingTargets", None)
-    if self.isCurrentSeriesCoverProstateInNonPreopMode():
+    if self.isCurrentSeriesCoverProstate():
       return self.data.initialTargets
     return self._movingTargets
 
   @movingTargets.setter
   def movingTargets(self, value):
-    if self.isCurrentSeriesCoverProstateInNonPreopMode():
+    if self.isCurrentSeriesCoverProstate():
       self.data.initialTargets = value
     self._movingTargets = value
     
   @property
   def fixedVolume(self):
     self._fixedVolume = getattr(self, "_fixedVolume", None)
-    if self.isCurrentSeriesCoverProstateInNonPreopMode():
+    if self.isCurrentSeriesCoverProstate():
       return self.data.initialVolume
     return self._fixedVolume
 
   @fixedVolume.setter
   def fixedVolume(self, value):
-    if self.isCurrentSeriesCoverProstateInNonPreopMode():
+    if self.isCurrentSeriesCoverProstate():
       self.data.initialVolume = value
     self._fixedVolume = value
 
   @property
   def fixedLabel(self):
     self._fixedLabel = getattr(self, "_fixedLabel", None)
-    if self.isCurrentSeriesCoverProstateInNonPreopMode():
+    if self.isCurrentSeriesCoverProstate():
       return self.data.initialLabel
     return self._fixedLabel
 
   @fixedLabel.setter
   def fixedLabel(self, value):
-    if self.isCurrentSeriesCoverProstateInNonPreopMode():
+    if self.isCurrentSeriesCoverProstate():
       self.data.initialLabel = value
     self._fixedLabel = value
 
@@ -205,13 +174,11 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.initializeColorNodes()
     self.directory = None
     self.data = SessionData()
-    self.data.addEventObserver(self.data.NewResultCreatedEvent, self.onNewResultCreated)
     self.trainingMode = False
     self.resetIntraopDICOMReceiver()
     self.loadableList = {}
     self.seriesList = []
     self.alreadyLoadedSeries = {}
-    self._currentResult = None
     self._currentSeries = None
     self.retryMode = False
     self.lastSelectedModelIndex = None
@@ -229,14 +196,10 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def onMrmlSceneCleared(self, caller, event):
     self.initializeColorNodes()
-  
-  @vtk.calldata_type(vtk.VTK_STRING)
-  def onNewResultCreated(self, caller, event, callData):
-    self.currentResult = callData  
 
   @onExceptionReturnFalse
-  def isCurrentSeriesCoverProstateInNonPreopMode(self):
-    return self.seriesTypeManager.isCoverProstate(self.currentSeries) and not self.data.usePreopData
+  def isCurrentSeriesCoverProstate(self):
+    return self.seriesTypeManager.isCoverProstate(self.currentSeries)
 
   def isPreProcessing(self):
     return slicer.util.selectedModule() != self.MODULE_NAME
@@ -386,7 +349,7 @@ class ProstateCryoAblationSession(StepBasedSession):
           self.seriesList.append(series)
           newSeries.append(series)
           self.loadableList[series] = self.createLoadableFileListForSeries(series)
-    self.seriesList = sorted(self.seriesList, key=lambda s: RegistrationResult.getSeriesNumberFromString(s))
+    self.seriesList = sorted(self.seriesList, key=lambda s: int(s.split(": ")[0]))
 
     if len(newFileList):
       self.verifyPatientIDEquality(newFileList)
@@ -418,7 +381,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     # TODO: For loading case purposes it would be nice to keep track which series were accepted
     if len(self.loadableList.keys()) > 1:
       keylist = self.loadableList.keys()
-      keylist.sort(key=lambda x: RegistrationResult.getSeriesNumberFromString(x))
+      keylist.sort(key=lambda x: int(x.split(": ")[0]))
       return self.loadableList[keylist[0]][0]
     else:
       return None
@@ -437,7 +400,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     return volume
 
   def createLoadableFileListForSeries(self, series):
-    seriesNumber = RegistrationResult.getSeriesNumberFromString(series)
+    seriesNumber = int(series.split(": ")[0])
     loadableList = []
     for dcm in self.getFileList(self.intraopDICOMDirectory):
       currentFile = os.path.join(self.intraopDICOMDirectory, dcm)
@@ -453,7 +416,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def deleteSeriesFromSeriesList(self, seriesNumber):
     for series in self.seriesList:
-      currentSeriesNumber = RegistrationResult.getSeriesNumberFromString(series)
+      currentSeriesNumber = int(series.split(": ")[0])
       if currentSeriesNumber == seriesNumber:
         self.seriesList.remove(series)
         for seriesFile in self.loadableList[series]:
@@ -637,11 +600,6 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.invokeEvent(event, callData)
     else:
       raise UnknownSeriesError("Action for currently selected series unknown")
-  
-  def generateNameAndCreateRegistrationResult(self, fixedVolume):
-    result = self.data.createResult(fixedVolume.GetName())
-    #self.registrationLogic.registrationResult = result
-    return result  
 
   @onReturnProcessEvents
   def updateProgressBar(self, **kwargs):
@@ -650,20 +608,5 @@ class ProstateCryoAblationSession(StepBasedSession):
         if hasattr(self.progress, key):
           setattr(self.progress, key, value)
 
-  
-  def addTargetsToMrmlScene(self, result):
-    targetNodes = result.targets.asDict()
-    for regType in RegistrationTypeData.RegistrationTypes:
-      if targetNodes[regType]:
-        slicer.mrmlScene.AddNode(targetNodes[regType])
-
-  def skipSeries(self, series):
-    volume = self.getOrCreateVolumeForSeries(series)
-    name, suffix = self.getRegistrationResultNameAndGeneratedSuffix(volume.GetName())
-    result = self.data.createResult(name+suffix)
-    result.volumes.fixed = volume
-    result.skip()
-
   def skip(self, series):
-    self.skipSeries(series)
     self.save()

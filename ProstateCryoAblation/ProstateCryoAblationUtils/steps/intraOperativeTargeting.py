@@ -114,26 +114,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.session.data.segmentModelNode = self.segmentationEditor.segmentationNode()
     self.segmentationEditorNoneButton.click()
     self.session.previousStep.active = True
-    """
-    if not self.session.data.usePreopData and not self.session.retryMode:
-      self.createCoverProstateRegistrationResultManually()
-    else:
-      self.session.onInvokeRegistration(initial=True, retryMode=self.session.retryMode)
-    
-    
-  def createCoverProstateRegistrationResultManually(self):
-    fixedVolume = self.session.currentSeriesVolume
-    result = self.session.generateNameAndCreateRegistrationResult(fixedVolume)
-    approvedRegistrationType = "rigid" # when no preop image available, we set the first registration result to rigid type
-    result.targets.original = self.session.movingTargets
-    targetName = str(result.seriesNumber) + '-TARGETS-' + approvedRegistrationType + result.suffix
-    clone = self.logic.cloneFiducials(self.session.movingTargets, targetName)
-    self.session.applyDefaultTargetDisplayNode(clone)
-    result.setTargets(approvedRegistrationType, clone)
-    result.volumes.fixed = fixedVolume
-    result.labels.fixed = self.session.fixedLabel
-    result.approve(approvedRegistrationType)
-  """
   
   def setupConnections(self):
     super(ProstateCryoAblationTargetingStep, self).setupConnections()
@@ -229,31 +209,16 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
         tFilter2.SetTransform(transform)
         tFilter2.SetInputData(affectedBallAreaSource.GetOutput())
         tFilter2.Update()
-        #affectedBallArea.SetCenter(start+(depth-offsetFromTip)*needleDirection)
-
         affectedBallAreaAppend.AddInputData(tFilter2.GetOutput())
         affectedBallAreaAppend.Update()
-        #self.templatePathOrigins.append([row[0], row[1], row[2], 1.0])
-        #self.templatePathVectors.append([n[0], n[1], n[2], 1.0])
-        #self.templateMaxDepth.append(row[6])
-  
-      #self.needleModelNode.SetAndObserveTransformNodeID(self.session.data.zFrameRegistrationResult.transform.GetID())
-      """
-      needleVector = self.session.steps[1].logic.pathVectors[0]
-      for posIndex in range(self.session.movingTargets.GetNumberOfFiducials()):
-        pos = [0.0,0.0,0.0]
-        self.session.movingTargets.GetNthFiducialPosition(posIndex, pos)
-        depth = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation.getZFrameDepth(posIndex,False)
-        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(pos, pos- 10*depth*needleVector, radius=1.5, numSides=6)
-        needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
-        needleModelAppend.Update()
-      """
+
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
       if self.needleModelNode.GetDisplayNode() is None:
-        self.needleModelNode.CreateDefaultDisplayNodes()
+        ModuleLogicMixin.createAndObserveDisplayNode(self.needleModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
       if self.affectedAreaModelNode.GetDisplayNode() is None:
-        self.affectedAreaModelNode.CreateDefaultDisplayNodes()
+        ModuleLogicMixin.createAndObserveDisplayNode(self.affectedAreaModelNode,
+                                                     displayNodeClass=slicer.vtkMRMLModelDisplayNode)
       self.needleModelNode.GetDisplayNode().SetColor(1.0, 0.0, 0.0)
       self.affectedAreaModelNode.GetDisplayNode().SetColor(0.0,1.0,0.0)
 
@@ -264,7 +229,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       self.segmentationEditorShow3DButton.checked = checked
     if self.session.data.segmentModelNode:
       if self.session.data.segmentModelNode.GetDisplayNode() is None:
-        self.session.data.segmentModelNode.CreateDefaultDisplayNodes()
+        ModuleLogicMixin.createAndObserveDisplayNode(self.session.data.segmentModelNode,
+                                                     displayNodeClass=slicer.vtkMRMLSegmentationDisplayNode)
       if not self.session.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
         self.session.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
     pass  

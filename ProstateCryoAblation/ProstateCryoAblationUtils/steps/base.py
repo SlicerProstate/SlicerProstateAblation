@@ -42,16 +42,11 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
   
   def onActivation(self):
     self.layoutManager.layoutChanged.connect(self.onLayoutChanged)
-    self.session.addEventObserver(self.session.CurrentResultChangedEvent, self.onCurrentResultChanged)
     super(ProstateCryoAblationWidgetBase, self).onActivation()
 
   def onDeactivation(self):
     self.layoutManager.layoutChanged.disconnect(self.onLayoutChanged)
-    self.session.removeEventObserver(self.session.CurrentResultChangedEvent, self.onCurrentResultChanged)
     super(ProstateCryoAblationWidgetBase, self).onDeactivation()
-
-  def onCurrentResultChanged(self, caller, event):
-    pass
 
   @onModuleSelected(constants.MODULE_NAME)
   def onLayoutChanged(self, layout=None):

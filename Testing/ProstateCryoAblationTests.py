@@ -1,35 +1,35 @@
 import unittest
 import os, inspect, slicer
-from SliceTrackerUtils.session import SliceTrackerSession
-from SliceTrackerUtils.sessionData import SessionData
+from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
+from ProstateCryoAblationUtils.sessionData import SessionData
 
-__all__ = ['SliceTrackerSessionTests', 'RegistrationResultsTest']
+__all__ = ['ProstateCryoAblationSessionTests', 'RegistrationResultsTest']
 
-tempDir =  os.path.join(slicer.app.temporaryPath, "SliceTrackerResults")
+tempDir =  os.path.join(slicer.app.temporaryPath, "ProstateCryoAblationSessionResults")
 
-# class SliceTrackerSessionTests(unittest.TestCase):
-#
-#   @classmethod
-#   def setUpClass(cls):
-#     cls.session = SliceTrackerSession()
-#
-#   def runTest(self):
-#     self.test_SliceTrackerSessionEvents()
-#     self.test_SliceTrackerSessionSingleton()
-#
-#   def test_SliceTrackerSessionEvents(self):
-#     self.directoryChangedEventCalled = False
-#     self.session.addEventObserver(self.session.DirectoryChangedEvent,
-#                                   lambda event,caller:setattr(self, "directoryChangedEventCalled", True))
-#
-#     self.assertFalse(self.directoryChangedEventCalled)
-#     self.session.directory = tempDir
-#     self.assertTrue(self.directoryChangedEventCalled)
-#
-#   def test_SliceTrackerSessionSingleton(self):
-#     session = SliceTrackerSession()
-#     self.assertTrue(self.session is session)
-#     self.assertTrue(session.directory == self.session.directory)
+class ProstateCryoAblationSessionTests(unittest.TestCase):
+
+  @classmethod
+  def setUpClass(cls):
+    cls.session = ProstateCryoAblationSession()
+
+  def runTest(self):
+    self.test_ProstateCryoAblationSessionEvents()
+    self.test_ProstateCryoAblationSessionSingleton()
+
+  def test_ProstateCryoAblationSessionEvents(self):
+    self.directoryChangedEventCalled = False
+    self.session.addEventObserver(self.session.DirectoryChangedEvent,
+                                  lambda event,caller:setattr(self, "directoryChangedEventCalled", True))
+
+    self.assertFalse(self.directoryChangedEventCalled)
+    self.session.directory = tempDir
+    self.assertTrue(self.directoryChangedEventCalled)
+
+  def test_ProstateCryoAblationSessionSingleton(self):
+    session = ProstateCryoAblationSession()
+    self.assertTrue(self.session is session)
+    self.assertTrue(session.directory == self.session.directory)
 
 
 class RegistrationResultsTest(unittest.TestCase):

@@ -108,8 +108,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
                                                                                           DICOMTAGS.SERIES_DESCRIPTION]),
                                   WatchBoxAttribute('StudyDate', 'Intraop Date: ', DICOMTAGS.STUDY_DATE)]
     self.intraopWatchBox = DICOMBasedInformationWatchBox(intraopWatchBoxInformation, columns=2)
-    self.registrationDetailsButton = self.createButton("", icon=self.settingsIcon, styleSheet="border:none;",
-                                                       maximumWidth=16)
     self.layout.addWidget(self.intraopWatchBox)
 
   def setupViewSettingGroupBox(self):
@@ -177,19 +175,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     if not self.session.data.usePreopData and self.patientWatchBox.sourceFile is None:
       self.patientWatchBox.sourceFile = receivedFile
     self.intraopWatchBox.sourceFile = receivedFile
-    """
-    backgroundVolumeID = self.session.getOrCreateVolumeForSeries(callData).GetID() if self.session.getOrCreateVolumeForSeries(
-      callData) else None
-    registrationResult = self.session.data.getApprovedOrLastResultForSeries(callData) if self.session.data.getResult(callData) else None
-    if registrationResult:
-      approvedVolume = registrationResult.volumes.asDict().get(registrationResult.registrationType)
-      backgroundVolumeID = approvedVolume.GetID() if approvedVolume else None
-    for widget in [w for w in self.getAllVisibleWidgets() if w.sliceView().visible]:
-      compositeNode = widget.mrmlSliceCompositeNode()
-      compositeNode.SetLabelVolumeID(None)
-      compositeNode.SetForegroundVolumeID(None)
-      compositeNode.SetBackgroundVolumeID(backgroundVolumeID)
-    """
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onAvailableLayoutsChanged(self, caller, event, callData):

@@ -326,15 +326,6 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.targetTableModel.targetList = targets
     if not targets:
       self.targetTableModel.coverProstateTargetList = None
-    else:
-      seriesTypeManager = SeriesTypeManager()
-      coverProstate = None
-      for tempResult in self.session.data.registrationResults.values():
-        if seriesTypeManager.isCoverProstate(tempResult.name) :
-          result = tempResult
-          break
-      if coverProstate:
-        self.targetTableModel.coverProstateTargetList = coverProstate.targets.approved
     self.targetTable.enabled = targets is not None
     if self.currentTargets:
       self.onTargetSelectionChanged()
@@ -350,7 +341,6 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     super(ProstateCryoAblationTargetTablePlugin, self).setup()
     self.targetTable = qt.QTableView()
     self.targetTableModel = CustomTargetTableModel(self.logic)
-    # self.targetTableModel.addEventObserver(vtk.vtkCommand.ModifiedEvent, self.updateNeedleModel)
     self.targetTable.setModel(self.targetTableModel)
     self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
     self.setTargetTableSizeConstraints()
@@ -444,7 +434,6 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if not self.currentTargets:
       self.currentTargets = self.session.data.initialTargets
     self.jumpSliceNodesToNthTarget(modelIndex.row())
-    # self.updateNeedleModel()
     self.targetTableModel.currentTargetIndex = self.lastSelectedModelIndex.row()
     self.updateSelection(self.lastSelectedModelIndex.row())
 

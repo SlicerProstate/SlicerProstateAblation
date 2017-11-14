@@ -11,11 +11,9 @@ from SlicerDevelopmentToolboxUtils.decorators import logmethod, onReturnProcessE
 from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar
 from base import ProstateCryoAblationLogicBase, ProstateCryoAblationStep
 from ProstateCryoAblationUtils.steps.plugins.case import ProstateCryoAblationCaseManagerPlugin
-from ProstateCryoAblationUtils.steps.plugins.results import ProstateCryoAblationRegistrationResultsPlugin
 from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
 from ProstateCryoAblationUtils.steps.plugins.training import ProstateCryoAblationTrainingPlugin
 from ..constants import ProstateCryoAblationConstants as constants
-from ..sessionData import RegistrationResult
 from ..helpers import IncomingDataMessageBox, SeriesTypeToolButton, SeriesTypeManager
 from SlicerDevelopmentToolboxUtils.icons import Icons
 
@@ -73,8 +71,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
                                                      toolTip="Skip selected series", enabled=False)
     self.setupIntraopSeriesSelector()
 
-    self.setupRegistrationResultsPlugin()
-
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
     self.addPlugin(self.targetingPlugin)
     self.targetingPlugin.targetTablePlugin.currentTargets = self.session.movingTargets
@@ -83,24 +79,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
     self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.changeSeriesTypeButton,
                                                 self.trackTargetsButton, self.skipIntraopSeriesButton]))
-
     self.layout().addStretch(1)
-    #self.layout().addWidget(self.regResultsCollapsibleButton, 4, 0)
-    # self.layout().setRowStretch(8, 1)
-
-  def setupRegistrationResultsPlugin(self):
-    self.regResultsCollapsibleButton = ctk.ctkCollapsibleButton()
-    self.regResultsCollapsibleButton.collapsed = True
-    self.regResultsCollapsibleButton.text = "Registration Evaluation"
-    self.regResultsCollapsibleButton.hide()
-    self.regResultsCollapsibleLayout= qt.QGridLayout(self.regResultsCollapsibleButton)
-    self.regResultsPlugin = ProstateCryoAblationRegistrationResultsPlugin()
-    self.regResultsPlugin.resultSelectorVisible = False
-    self.regResultsPlugin.titleVisible = False
-    self.regResultsPlugin.visualEffectsTitle = ""
-    self.regResultsPlugin.registrationTypeButtonsVisible = False
-    self.addPlugin(self.regResultsPlugin)
-    self.regResultsCollapsibleLayout.addWidget(self.regResultsPlugin)
 
   def setupIntraopSeriesSelector(self):
     self.intraopSeriesSelector = qt.QComboBox()
@@ -127,7 +106,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def onSkipIntraopSeriesButtonClicked(self):
     if slicer.util.confirmYesNoDisplay("Do you really want to skip this series?", windowTitle="Skip series?"):
-      self.session.skip(self.intraopSeriesSelector.currentText)
       self.updateIntraopSeriesSelectorTable()
 
   def onTrackTargetsButtonClicked(self):
@@ -139,34 +117,9 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     if selectedSeries:
       trackingPossible = self.session.isTrackingPossible(selectedSeries)
       self.setIntraopSeriesButtons(trackingPossible, selectedSeries)
-      #self.configureViewersForSelectedIntraopSeries(selectedSeries)
       self.changeSeriesTypeButton.setSeries(selectedSeries)
     colorStyle = self.session.getColorForSelectedSeries(self.intraopSeriesSelector.currentText)
     self.intraopSeriesSelector.setStyleSheet("QComboBox{%s} QToolTip{background-color: white;}" % colorStyle)
-  """
-  def configureViewersForSelectedIntraopSeries(self, selectedSeries):
-    if self.session.data.registrationResultWasApproved(selectedSeries) or \
-            self.session.data.registrationResultWasRejected(selectedSeries):
-      if self.session.seriesTypeManager.isCoverProstate(selectedSeries) and not self.session.data.usePreopData:
-        result = self.session.data.getResult(selectedSeries)
-        self.currentResult = result.name if result else None
-        self.regResultsPlugin.onLayoutChanged()
-        self.regResultsCollapsibleButton.hide()
-      else:
-        self.currentResult = self.session.data.getApprovedOrLastResultForSeries(selectedSeries).name
-        self.regResultsCollapsibleButton.show()
-        self.regResultsPlugin.onLayoutChanged()
-      self.targetingPlugin.currentTargets = self.currentResult.targets.approved if self.currentResult.approved \
-        else self.currentResult.targets.bSpline
-    else:
-      result = self.session.data.getResult(selectedSeries)
-      self.currentResult = result.name if result else None
-      self.regResultsPlugin.onLayoutChanged()
-      self.regResultsCollapsibleButton.hide()
-      if not self.session.data.registrationResultWasSkipped(selectedSeries):
-        self.regResultsPlugin.cleanup()
-      self.targetingPlugin.currentTargets = None
-  """
 
   def setIntraopSeriesButtons(self, trackingPossible, selectedSeries):
     trackingPossible = trackingPossible and not self.session.data.completed
@@ -277,10 +230,10 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       return
     selectedSeries = self.intraopSeriesSelector.currentText
     if selectedSeries != "" and self.session.isTrackingPossible(selectedSeries):
-      selectedSeriesNumber = RegistrationResult.getSeriesNumberFromString(selectedSeries)
+      selectedSeriesNumber = int(selectedSeries.split(": ")[0])
 
       newImageSeries = ast.literal_eval(callData)
-      newImageSeriesNumbers = [RegistrationResult.getSeriesNumberFromString(s) for s in newImageSeries]
+      newImageSeriesNumbers = [int(s.split(": ")[0]) for s in newImageSeries]
       if selectedSeriesNumber in newImageSeriesNumbers:
         self.takeActionOnSelectedSeries()
 

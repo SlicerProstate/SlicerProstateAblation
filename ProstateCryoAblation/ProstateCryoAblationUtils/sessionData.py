@@ -69,8 +69,6 @@ class SessionData(ModuleLogicMixin):
     self.initialTargetsPath = None
 
     self.zFrameRegistrationResult = None
-    self.registrationResults = OrderedDict()
-    self._savedRegistrationResults = []
 
     self.customProgressBar = CustomStatusProgressbar()
     
@@ -78,16 +76,6 @@ class SessionData(ModuleLogicMixin):
   def createZFrameRegistrationResult(self, series):
     self.zFrameRegistrationResult = ZFrameRegistrationResult(series)
     return self.zFrameRegistrationResult
-  
-  def getResultsAsList(self):
-    return self.registrationResults.values()
-  
-  def createResult(self, series, invokeEvent=True):
-    assert series not in self.registrationResults.keys()
-    self.registrationResults[series] = RegistrationResult(series)
-    if invokeEvent is True:
-      self.invokeEvent(self.NewResultCreatedEvent, series)
-    return self.registrationResults[series]
 
   def readProcedureEvents(self, procedureEvents):
     self.startTimeStamp = procedureEvents["caseStarted"]
@@ -111,8 +99,6 @@ class SessionData(ModuleLogicMixin):
 
       self.readProcedureEvents(data["procedureEvents"])
 
-      self.usePreopData = data["usedPreopData"]
-
       if "initialTargets" in data.keys():
         self.initialTargets = self._loadOrGetFileData(directory,
                                                       data["initialTargets"], slicer.util.loadMarkupsFiducialList)
@@ -135,81 +121,8 @@ class SessionData(ModuleLogicMixin):
       if "tumorSegmentation" in data.keys():
         self.segmentModelNode = self._loadOrGetFileData(directory, data["tumorSegmentation"], slicer.util.loadSegmentation)
 
-      self.loadResults(data, directory) ## ?? why need to load twice
+      #self.loadResults(data, directory) ## ?? why need to load twice
     return True
-
-  def getMostRecentApprovedCoverProstateRegistration(self):
-    seriesTypeManager = SeriesTypeManager()
-    for result in self.registrationResults.values():
-      if seriesTypeManager.isCoverProstate(result.name) and result.approved:
-        return result
-    return None
-
-  def getResultsBySeriesNumber(self, seriesNumber):
-    return [result for result in self.getResultsAsList() if seriesNumber == result.seriesNumber]
-
-  def _registrationResultHasStatus(self, series, status, method=all):
-    if not type(series) is int:
-      series = RegistrationResult.getSeriesNumberFromString(series)
-    results = self.getResultsBySeriesNumber(series)
-    return method(result.status == status for result in results) if len(results) else False
-
-  def registrationResultWasApproved(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.APPROVED_STATUS, method=any)
-
-  def registrationResultWasSkipped(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.SKIPPED_STATUS)
-
-  def registrationResultWasRejected(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.REJECTED_STATUS)
-
-  def registrationResultWasApprovedOrRejected(self, series):
-    return self._registrationResultHasStatus(series, RegistrationStatus.REJECTED_STATUS) or \
-           self._registrationResultHasStatus(series, RegistrationStatus.APPROVED_STATUS)
-
-  def loadResults(self, data, directory):
-    if len(data["results"]):
-      self.customProgressBar.maximum = len(data["results"])
-    for index, jsonResult in enumerate(data["results"], start=1):
-      name = jsonResult["name"]
-      logging.debug("processing %s" % name)
-      result = self.createResult(name, invokeEvent=False)
-      self.customProgressBar.updateStatus("Loading series registration result %s" % result.name, index)
-      slicer.app.processEvents()
-
-      for attribute, value in jsonResult.iteritems():
-        logging.debug("found %s: %s" % (attribute, value))
-        if attribute == 'volumes':
-          self._loadResultFileData(value, directory, slicer.util.loadVolume, result.setVolume)
-        elif attribute == 'transforms':
-          self._loadResultFileData(value, directory, slicer.util.loadTransform, result.setTransform)
-        elif attribute == 'targets':
-          approved = value.pop('approved', None)
-          original = value.pop('original', None)
-          self._loadResultFileData(value, directory, slicer.util.loadMarkupsFiducialList, result.setTargets)
-          if approved:
-            approvedTargets = self._loadOrGetFileData(directory, approved["fileName"], slicer.util.loadMarkupsFiducialList)
-            setattr(result.targets, 'approved', approvedTargets)
-            result.targets.modifiedTargets[jsonResult["registrationType"]] = approved["userModified"]
-          if original:
-            originalTargets = self._loadOrGetFileData(directory, original, slicer.util.loadMarkupsFiducialList)
-            setattr(result.targets, 'original', originalTargets)
-        elif attribute == 'labels':
-          self._loadResultFileData(value, directory, slicer.util.loadLabelVolume, result.setLabel)
-        elif attribute == 'status':
-          result.status = value["state"]
-          result.timestamp = value["time"]
-        elif attribute == 'seriesType':
-          seriesType = jsonResult["seriesType"] if jsonResult.has_key("seriesType") else None
-          self.seriesTypeManager.assign(name, seriesType)
-        else:
-          setattr(result, attribute, value)
-        self.customProgressBar.text = "Finished loading registration results"
-
-  def _loadResultFileData(self, dictionary, directory, loadFunction, setFunction):
-    for regType, filename in dictionary.iteritems():
-      data = self._loadOrGetFileData(directory, filename, loadFunction)
-      setFunction(regType, data)
 
   def _loadOrGetFileData(self, directory, filename, loadFunction):
     if not filename:
@@ -262,16 +175,7 @@ class SessionData(ModuleLogicMixin):
       self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
       return name + FileExtension.NRRD
 
-    def createResultsList():
-      results = []
-      for result in sorted(self.getResultsAsList(), key=lambda r: r.seriesNumber):
-        results.append(result.asDict())
-      return results
-
-    data = {
-      "usedPreopData": self.usePreopData,
-      "results": createResultsList()
-    }
+    data = {}
 
     def addProcedureEvents():
       procedureEvents = {
@@ -304,25 +208,9 @@ class SessionData(ModuleLogicMixin):
       logging.debug("Writing registration results to %s" % destinationFile)
       json.dump(data, outfile, indent=2)
 
-    failedSaveOfFileNames += self.saveRegistrationResults(outputDir)
-
     self.printOutput("The following data was successfully saved:\n", successfullySavedFileNames)
     self.printOutput("The following data failed to saved:\n", failedSaveOfFileNames)
     return (len(failedSaveOfFileNames) == 0, failedSaveOfFileNames)
-  
-  def saveRegistrationResults(self, outputDir):
-      failedToSave = []
-      self.customProgressBar.visible = True
-      for index, result in enumerate(self.getResultsAsList(), start=1):
-        self.customProgressBar.maximum = len(self.registrationResults)
-        self.customProgressBar.updateStatus("Saving registration result for series %s" % result.name, index)
-        slicer.app.processEvents()
-        if result not in self._savedRegistrationResults:
-          successfulList, failedList = result.save(outputDir)
-          failedToSave += failedList
-          self._savedRegistrationResults.append(result)
-      self.customProgressBar.text = "Registration data successfully saved" if len(failedToSave) == 0 else "Error/s occurred during saving"
-      return failedToSave
     
   def printOutput(self, message, fileNames):
     if not len(fileNames):
@@ -331,69 +219,7 @@ class SessionData(ModuleLogicMixin):
       message += fileName + "\n"
     logging.debug(message)
 
-
-class AbstractRegistrationData(ModuleLogicMixin):
-
-  FILE_EXTENSION = None
-
-  def __init__(self):
-    self.initializeMembers()
-
-  def initializeMembers(self):
-    raise NotImplementedError
-
-  def asList(self):
-    raise NotImplementedError
-
-  def asDict(self):
-    raise NotImplementedError
-
-  @onExceptionReturnNone
-  def getFileName(self, node):
-    return self.replaceUnwantedCharacters(node.GetName()) + self.FILE_EXTENSION
-
-  def getFileNameByAttributeName(self, name):
-    return self.getFileName(getattr(self, name))
-
-  # @logmethod(level=logging.INFO)
-  def getAllFileNames(self):
-    fileNames = {}
-    for regType, node in self.asDict().iteritems():
-      if node:
-        fileNames[regType] = self.getFileName(node)
-    return fileNames
-
-  # @logmethod(level=logging.INFO)
-  def save(self, directory):
-    assert self.FILE_EXTENSION is not None
-    savedSuccessfully = []
-    failedToSave = []
-    for node in [node for node in self.asList() if node]:
-      success, name = self.saveNodeData(node, directory, self.FILE_EXTENSION)
-      self.handleSaveNodeDataReturn(success, name, savedSuccessfully, failedToSave)
-    return savedSuccessfully, failedToSave
-
-
-class RegistrationTypeData(AbstractRegistrationData):
-
-  RegistrationTypes = ['rigid', 'affine', 'bSpline']
-
-  def __init__(self):
-    super(RegistrationTypeData, self).__init__()
-
-  def initializeMembers(self):
-    self.rigid = None
-    self.affine = None
-    self.bSpline = None
-
-  def asList(self):
-    return [self.rigid, self.affine, self.bSpline]
-
-  def asDict(self):
-    return {'rigid': self.rigid, 'affine': self.affine, 'bSpline': self.bSpline}
-
-  
-class Transforms(RegistrationTypeData):
+class Transforms(object):
 
   FILE_EXTENSION = FileExtension.H5
 
@@ -401,347 +227,41 @@ class Transforms(RegistrationTypeData):
     super(Transforms, self).__init__()
 
 
-class Targets(RegistrationTypeData):
+class Targets(object):
 
   FILE_EXTENSION = FileExtension.FCSV
 
   def __init__(self):
     super(Targets, self).__init__()
 
-  def initializeMembers(self):
-    super(Targets, self).initializeMembers()
-    self.modifiedTargets = {}
-    self.original = None
-    self.approved = None
 
-  def asList(self):
-    return super(Targets, self).asList() + [self.original, self.approved]
-
-  def asDict(self):
-    dictionary = super(Targets, self).asDict()
-    dictionary.update({'original':self.original, 'approved': self.approved})
-    return dictionary
-
-  def approve(self, registrationType):
-    approvedTargets = getattr(self, registrationType)
-    self.approved = self.cloneFiducials(approvedTargets,
-                                        cloneName=approvedTargets.GetName().replace(registrationType, "approved"),
-                                        keepDisplayNode=True)
-
-  def save(self, directory):
-    savedSuccessfully, failedToSave = super(Targets, self).save(directory)
-    if self.approved:
-      success, name = self.saveNodeData(self.approved, directory, self.FILE_EXTENSION)
-      self.handleSaveNodeDataReturn(success, name, savedSuccessfully, failedToSave)
-    return savedSuccessfully, failedToSave
-
-  def isGoingToBeMoved(self, targetList, index):
-    assert targetList in self.asList()
-    regType = self.getRegistrationTypeForTargetList(targetList)
-    if not self.modifiedTargets.has_key(regType):
-      self.modifiedTargets[regType] = [False for i in range(targetList.GetNumberOfFiducials())]
-    self.modifiedTargets[regType][index] = True
-
-  def getRegistrationTypeForTargetList(self, targetList):
-    for regType, currentTargetList in self.asDict().iteritems():
-      if targetList is currentTargetList:
-        return regType
-    return None
-
-
-class Volumes(RegistrationTypeData):
+class Volumes(object):
 
   FILE_EXTENSION = FileExtension.NRRD
 
   def __init__(self):
     super(Volumes, self).__init__()
 
-  def initializeMembers(self):
-    super(Volumes, self).initializeMembers()
-    self.fixed = None
-    self.moving = None
 
-  def asList(self):
-    return super(Volumes, self).asList() + [self.fixed, self.moving]
-
-  def asDict(self):
-    dictionary = super(Volumes, self).asDict()
-    dictionary.update({'fixed':self.fixed, 'moving': self.moving})
-    return dictionary
-
-
-class Labels(RegistrationTypeData):
+class Labels(object):
 
   FILE_EXTENSION = FileExtension.NRRD
 
   def __init__(self):
     super(Labels, self).__init__()
 
-  def initializeMembers(self):
-    self.moving = None
-    self.fixed = None
 
-  def asList(self):
-    return [self.fixed, self.moving]
+class Segments(object):
 
-  def asDict(self):
-    return {'fixed':self.fixed, 'moving':self.moving}
-
-
-class Segments(RegistrationTypeData):
-
-  FILE_EXTENSION = FileExtension.VTK
+  FILE_EXTENSION = ".seg.nrrd"
 
   def __init__(self):
     super(Segments, self).__init__()
 
-  def initializeMembers(self):
-    self.moving = None
-    self.fixed = None
-
-  def asList(self):
-    return [self.fixed, self.moving]
-
-  def asDict(self):
-    return {'fixed':self.fixed, 'moving':self.moving}
-
-
-class RegistrationStatus(ModuleLogicMixin):
-
-  SkippedEvent = vtk.vtkCommand.UserEvent + 601
-  ApprovedEvent = vtk.vtkCommand.UserEvent + 602
-  RejectedEvent = vtk.vtkCommand.UserEvent + 603
-
-  UNDEFINED_STATUS = 'undefined'
-  SKIPPED_STATUS = 'skipped'
-  APPROVED_STATUS = 'approved'
-  REJECTED_STATUS = 'rejected'
-
-  __allowedStates = [SKIPPED_STATUS, APPROVED_STATUS, REJECTED_STATUS]
-  StatusEvents = {SKIPPED_STATUS: SKIPPED_STATUS, APPROVED_STATUS: ApprovedEvent, REJECTED_STATUS: RejectedEvent}
-
-  @property
-  def status(self):
-    return self._status
-
-  @status.setter
-  def status(self, value):
-    assert value in self.__allowedStates
-    self.timestamp = self.getTime()
-    self._status = value
-    self.invokeEvent(self.StatusEvents[value])
-
-  @property
-  def timestamp(self):
-    return self._timestamp
-  
-  @timestamp.setter
-  def timestamp(self, value):
-    self._timestamp = value
-  
-  @property
-  def approved(self):
-    return self.hasStatus(self.APPROVED_STATUS)
-
-  @property
-  def skipped(self):
-    return self.hasStatus(self.SKIPPED_STATUS)
-
-  @property
-  def rejected(self):
-    return self.hasStatus(self.REJECTED_STATUS)
-
-  def __init__(self):
-    self._status = self.UNDEFINED_STATUS
-    self._timestamp = self.getTime()
-
-  def hasStatus(self, status):
-    return self.status == status
-
-  def wasEvaluated(self):
-    return self.status in [self.SKIPPED_STATUS, self.APPROVED_STATUS, self.REJECTED_STATUS]
-
-  def approve(self):
-    self.status = self.APPROVED_STATUS
-
-  def skip(self):
-    self.status = self.SKIPPED_STATUS
-
-  def reject(self):
-    self.status = self.REJECTED_STATUS
-
-  def asDict(self):
-    return {
-      "status": {
-        "state": self.status,
-        "time": self.timestamp
-      }
-    }
-
-
-class RegistrationResultBase(ModuleLogicMixin):
-
-  @property
-  def name(self):
-    return self._name
-
-  @name.setter
-  def name(self, name):
-    splitted = name.split(': ')
-    assert len(splitted) == 2
-    self._name = name
-    self._seriesNumber = int(splitted[0])
-    self._seriesDescription = splitted[1]
-
-  @property
-  def seriesNumber(self):
-    return self._seriesNumber
-
-  @property
-  def seriesDescription(self):
-    return self._seriesDescription
-
-  @property
-  def seriesType(self):
-    seriesTypeManager = SeriesTypeManager()
-    return seriesTypeManager.getSeriesType(self.name)
+class ZFrameRegistrationResult(ModuleLogicMixin):
 
   def __init__(self, series):
     self.name = series
-
-
-class RegistrationResult(RegistrationResultBase, RegistrationStatus):
-
-  REGISTRATION_TYPE_NAMES = ['rigid', 'affine', 'bSpline']
-
-  @staticmethod
-  def getSeriesNumberFromString(text):
-    return int(text.split(": ")[0])
-
-  @property
-  @onExceptionReturnNone
-  def approvedVolume(self):
-    return self.getVolume(self.registrationType)
-
-  @property
-  def targetsWereModified(self):
-    return len(self.targets.modifiedTargets) > 0
-
-  def __init__(self, series):
-    RegistrationStatus.__init__(self)
-    RegistrationResultBase.__init__(self, series)
-
-    self.receivedTimestamp = self.getTime()
-
-    self.volumes = Volumes()
-    self.transforms = Transforms()
-    self.targets = Targets()
-    self.labels = Labels()
-    self.segments = Segments()
-
-    self.score = None
-
-    self.modifiedTargets = {}
-
-    self.registrationType = None
-
-  def setVolume(self, name, volume):
-    setattr(self.volumes, name, volume)
-
-  def getVolume(self, name):
-    return getattr(self.volumes, name)
-
-  def setTransform(self, name, transform):
-    setattr(self.transforms, name, transform)
-
-  def getTransform(self, name):
-    return getattr(self.transforms, name)
-
-  def setTargets(self, name, targets):
-    setattr(self.targets, name, targets)
-
-  def getTargets(self, name):
-    return getattr(self.targets, name)
-
-  def getLabel(self, name):
-    return getattr(self.labels, name)
-
-  def setLabel(self, name, label):
-    setattr(self.labels, name, label)
-
-  def getSegment(self, name):
-    return getattr(self.segments, name)
-
-  def setSegment(self, name, segments):
-    setattr(self.segments, name, segments)
-
-  def approve(self, registrationType):
-    assert registrationType in self.REGISTRATION_TYPE_NAMES
-    self.registrationType = registrationType
-    self.targets.approve(registrationType)
-    RegistrationStatus.approve(self)
-
-  def printSummary(self):
-    logging.debug('# ___________________________  registration output  ________________________________')
-    logging.debug(self.__dict__)
-    logging.debug('# __________________________________________________________________________________')
-
-  @logmethod(logging.INFO)
-  def save(self, outputDir):
-    def saveData():
-      savedSuccessfully = []
-      failedToSave = []
-      for data in [self.transforms, self.targets, self.volumes, self.labels, self.segments]:
-        successful, failed = data.save(outputDir)
-        savedSuccessfully += successful
-        failedToSave += failed
-      logging.debug("Successfully saved: %s \n" % str(savedSuccessfully))
-      logging.debug("Failed to save: %s \n" % str(failedToSave))
-      return savedSuccessfully, failedToSave
-
-    return saveData()
-
-  def getApprovedTargetsModifiedStatus(self):
-    try:
-      modified = self.targets.modifiedTargets[self.registrationType]
-    except KeyError:
-      modified = [False for i in range(self.targets.approved.GetNumberOfFiducials())]
-    return modified
-
-  def asDict(self):
-    seriesTypeManager = SeriesTypeManager()
-    dictionary = super(RegistrationResult, self).asDict()
-    dictionary.update({
-      "name": self.name,
-      "seriesType": seriesTypeManager.getSeriesType(self.name),
-      "receivedTime": self.receivedTimestamp
-    })
-    if self.approved or self.rejected:
-      dictionary["targets"] = self.targets.getAllFileNames()
-      dictionary["transforms"] = self.transforms.getAllFileNames()
-      dictionary["volumes"] = self.volumes.getAllFileNames()
-      dictionary["labels"] = self.labels.getAllFileNames()
-      dictionary["segments"] = self.suffix
-      if self.approved:
-        dictionary["registrationType"] = self.registrationType
-    elif self.skipped:
-      dictionary["volumes"] = {
-        "fixed": self.volumes.getFileName(self.volumes.fixed)
-      }
-    if self.score:
-      dictionary["score"] = self.score
-    if self.approved:
-      dictionary["targets"]["approved"] = {
-        "userModified": self.getApprovedTargetsModifiedStatus(),
-        "fileName": self.targets.getFileNameByAttributeName("approved")
-      }
-    return dictionary
-
-
-class ZFrameRegistrationResult(RegistrationResultBase):
-
-  def __init__(self, series):
-    RegistrationResultBase.__init__(self, series)
     self.volume = None
     self.transform = None
 

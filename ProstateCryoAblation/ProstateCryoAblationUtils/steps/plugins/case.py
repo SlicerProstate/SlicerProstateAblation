@@ -57,9 +57,6 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
     self.newIcon = Icons.new
     self.openIcon = Icons.open
     self.closeIcon = Icons.exit
-    #self.newIcon = self.createIcon('icon-new.png')
-    #self.openIcon = self.createIcon('icon-open.png')
-    #self.closeIcon = self.createIcon('icon-close.png')
 
   def setup(self):
     super(ProstateCryoAblationCaseManagerPlugin, self).setup()
