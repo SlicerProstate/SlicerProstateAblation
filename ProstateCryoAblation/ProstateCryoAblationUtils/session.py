@@ -6,7 +6,7 @@ from sessionData import SessionData
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
 from helpers import SeriesTypeManager
 
-from .exceptions import DICOMValueError, PreProcessedDataError, UnknownSeriesError
+from .exceptions import DICOMValueError, UnknownSeriesError
 
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS, FileExtension, STYLE
 from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
@@ -29,8 +29,6 @@ class ProstateCryoAblationSession(StepBasedSession):
   DICOMReceiverStoppedEvent = SlicerDevelopmentToolboxEvents.StoppedEvent
 
   ZFrameRegistrationSuccessfulEvent = vtk.vtkCommand.UserEvent + 140
-  PreprocessingSuccessfulEvent = vtk.vtkCommand.UserEvent + 141
-  FailedPreprocessedEvent = vtk.vtkCommand.UserEvent + 142
   LoadingMetadataSuccessfulEvent = vtk.vtkCommand.UserEvent + 143
   SegmentationCancelledEvent = vtk.vtkCommand.UserEvent + 144
 
@@ -201,9 +199,6 @@ class ProstateCryoAblationSession(StepBasedSession):
   def isCurrentSeriesCoverProstate(self):
     return self.seriesTypeManager.isCoverProstate(self.currentSeries)
 
-  def isPreProcessing(self):
-    return slicer.util.selectedModule() != self.MODULE_NAME
-
   def isCaseDirectoryValid(self):
     return os.path.exists(self.intraopDICOMDirectory)
 
@@ -227,7 +222,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.directory = destination
     self.createDirectory(self.intraopDICOMDirectory)
     self.createDirectory(self.outputDirectory)
-    self.data.usePreopData = False
     self.startIntraopDICOMReceiver()
     self.invokeEvent(self.IncomingDataSkippedEvent)
     self.newCaseCreated = False
@@ -458,7 +452,6 @@ class ProstateCryoAblationSession(StepBasedSession):
   def loadCaseData(self):
     if not os.path.exists(os.path.join(self.outputDirectory, constants.JSON_FILENAME)):
       if len(os.listdir(self.intraopDICOMDirectory)):
-        self.data.usePreopData = False
         self.startIntraopDICOMReceiver()
     else:
       self.openSavedSession()
@@ -481,13 +474,6 @@ class ProstateCryoAblationSession(StepBasedSession):
       displayNode.SetGlyphType(slicer.vtkMRMLAnnotationPointDisplayNode.StarBurst2D)
     return displayNode
 
-  def getFirstPreprocessedStudy(self, directory):
-    # TODO add check here and selected the one which has targets in it
-    # TODO: if several studies are available provide a drop down or anything similar for choosing
-    directoryNames = [x[0] for x in os.walk(directory)]
-    assert len(directoryNames) > 1
-    return directoryNames[1]
-
   def loadProcessedData(self, directory):
     resourcesDir = os.path.join(directory, 'RESOURCES')
     logging.debug(resourcesDir)
@@ -496,11 +482,6 @@ class ProstateCryoAblationSession(StepBasedSession):
                 "study root directory which includes directories RESOURCES"
       return message
 
-    # self.progress = self.createProgressDialog(maximum=len(os.listdir(resourcesDir)))
-    # seriesMap, metaFile = mpReviewLogic.loadMpReviewProcessedData(resourcesDir,
-    #                                                               updateProgressCallback=self.updateProgressBar)
-    #seriesMap, metaFile = mpReviewLogic.loadMpReviewProcessedData(resourcesDir)
-    # self.progress.delete()
 
     self.data.initialTargetsPath = os.path.join(directory, 'Targets')
     seriesMap =[]

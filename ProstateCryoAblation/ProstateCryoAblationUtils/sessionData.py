@@ -59,7 +59,6 @@ class SessionData(ModuleLogicMixin):
     self.closedLogTimeStamps = []
 
     self.completed = False
-    self.usePreopData = False
 
     self.segmentModelNode = None
 

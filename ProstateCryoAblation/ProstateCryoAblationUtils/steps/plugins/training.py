@@ -78,8 +78,6 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
       zip_ref.close()
       self.copyDirectory(filepath.replace(".zip", ""), copyToDirectory)
     except zipfile.BadZipfile as exc:
-      if self.preopTransferWindow:
-        self.preopTransferWindow.hide()
       slicer.util.errorDisplay("An error appeared while extracting %s. If the file is corrupt, please delete it and try "
                                "again." % filepath, detailedText=str(exc.message))
       self.clearData()
@@ -104,6 +102,4 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
   @vtk.calldata_type(vtk.VTK_STRING)
   def onCaseClosed(self, caller, event, callData):
     self.simulateIntraopPhaseButton.enabled = False
-
-  def onPreprocessingSuccessful(self, caller, event):
-    self.simulateIntraopPhaseButton.enabled = self.session.trainingMode
+    

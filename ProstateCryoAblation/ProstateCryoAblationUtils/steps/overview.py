@@ -33,7 +33,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def cleanup(self):
     self._seriesModel.clear()
-    self.changeSeriesTypeButton.enabled = False
     self.trackTargetsButton.enabled = False
     self.skipIntraopSeriesButton.enabled = False
     self.updateIntraopSeriesSelectorTable()
@@ -101,7 +100,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     if selectedSeries:
       trackingPossible = self.session.isTrackingPossible(selectedSeries)
       self.setIntraopSeriesButtons(trackingPossible, selectedSeries)
-      self.changeSeriesTypeButton.setSeries(selectedSeries)
     colorStyle = self.session.getColorForSelectedSeries(self.intraopSeriesSelector.currentText)
     self.intraopSeriesSelector.setStyleSheet("QComboBox{%s} QToolTip{background-color: white;}" % colorStyle)
 

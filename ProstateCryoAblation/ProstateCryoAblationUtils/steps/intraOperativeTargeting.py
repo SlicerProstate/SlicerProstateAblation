@@ -168,8 +168,10 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
   def onShowAffectiveZoneToggled(self, checked):
     self.showNeedlePath = checked
-    targetingTableWidget = self.targetingPlugin.fiducialsWidget
-    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and targetingTableWidget.currentNode.GetNumberOfFiducials():
+    targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
+    if self.targetingPlugin.fiducialsWidget.visible:
+      targetingNode = self.targetingPlugin.fiducialsWidget.currentNode
+    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and targetingNode.GetNumberOfFiducials():
       ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked) 
       ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
@@ -182,9 +184,9 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       affectedBallAreaRadius = self.GetIceBallRadius() # unit mm
       offsetFromTip = 5.0 #unit mm
       coneHeight = 5.0
-      for targetIndex in range(targetingTableWidget.currentNode.GetNumberOfFiducials()):
+      for targetIndex in range(targetingNode.GetNumberOfFiducials()):
         targetPosition = [0.0,0.0,0.0]
-        targetingTableWidget.currentNode.GetNthFiducialPosition(targetIndex, targetPosition)
+        targetingNode.GetNthFiducialPosition(targetIndex, targetPosition)
         (start, end, indexX, indexY, depth, inRange) = self.needlePathCaculator.computeNearestPath(targetPosition)
         needleDirection = (numpy.array(end) - numpy.array(start))/numpy.linalg.norm(numpy.array(end)-numpy.array(start))
         cone = vtk.vtkConeSource()
@@ -258,14 +260,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.resetAndInitialize()
     self.session.retryMode = retryMode
     if self.session.seriesTypeManager.isCoverProstate(self.session.currentSeries):
-      if self.session.data.usePreopData:
-        if self.session.retryMode:
-          if not self.loadLatestCoverProstateResultData():
-            self.loadInitialData()
-        else:
-          self.loadInitialData()
-      else:
-        self.session.movingVolume = self.session.currentSeriesVolume
+      self.session.movingVolume = self.session.currentSeriesVolume
     else:
       self.loadLatestCoverProstateResultData()
     self.active = True

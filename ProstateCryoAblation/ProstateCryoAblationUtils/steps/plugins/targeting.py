@@ -49,7 +49,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
       self.targetTablePlugin.visible = True
       self.targetTablePlugin.currentTargets = self.session.movingTargets
 
-    self.targetingGroupBox.visible = not self.session.data.usePreopData and not self.session.retryMode
+    self.targetingGroupBox.visible = not self.session.retryMode
 
   def onDeactivation(self):
     super(ProstateCryoAblationTargetingPlugin, self).onDeactivation()

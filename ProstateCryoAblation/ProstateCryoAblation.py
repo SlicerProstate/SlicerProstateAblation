@@ -99,7 +99,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.patientWatchBoxInformation = [WatchBoxAttribute('PatientName', 'Name: ', DICOMTAGS.PATIENT_NAME, masked=self.demoMode),
                                        WatchBoxAttribute('PatientID', 'PID: ', DICOMTAGS.PATIENT_ID, masked=self.demoMode),
                                        WatchBoxAttribute('DOB', 'DOB: ', DICOMTAGS.PATIENT_BIRTH_DATE, masked=self.demoMode),
-                                       WatchBoxAttribute('StudyDate', 'Preop Date: ', DICOMTAGS.STUDY_DATE)]
+                                       WatchBoxAttribute('StudyDate', 'StudyDate: ', DICOMTAGS.STUDY_DATE)]
     self.patientWatchBox = DICOMBasedInformationWatchBox(self.patientWatchBoxInformation, title="Patient Information",
                                                          columns=2)
     self.layout.addWidget(self.patientWatchBox)
@@ -147,16 +147,10 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.showAnnotationsButton.connect('toggled(bool)', self.onShowAnnotationsToggled)
     
   def setupSessionObservers(self):
-    self.session.addEventObserver(self.session.PreprocessingSuccessfulEvent, self.onSuccessfulPreProcessing)
     self.session.addEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
 
   def removeSessionObservers(self):
-    self.session.removeEventObserver(self.session.PreprocessingSuccessfulEvent, self.onSuccessfulPreProcessing)
     self.session.removeEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
-
-  def onSuccessfulPreProcessing(self, caller, event):
-    dicomFileName = self.logic.getFileList(self.session.preopDICOMDirectory)[0]
-    self.patientWatchBox.sourceFile = os.path.join(self.session.preopDICOMDirectory, dicomFileName)
 
   def onShowAnnotationsToggled(self, checked):
     allSliceAnnotations = self.sliceAnnotations[:]
@@ -172,7 +166,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   @vtk.calldata_type(vtk.VTK_STRING)
   def onCurrentSeriesChanged(self, caller, event, callData):
     receivedFile = self.session.loadableList[callData][0] if callData else None
-    if not self.session.data.usePreopData and self.patientWatchBox.sourceFile is None:
+    if self.patientWatchBox.sourceFile is None:
       self.patientWatchBox.sourceFile = receivedFile
     self.intraopWatchBox.sourceFile = receivedFile
 
