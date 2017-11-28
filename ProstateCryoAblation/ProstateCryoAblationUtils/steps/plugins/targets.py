@@ -174,12 +174,13 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
 
   SUPPORTED_EVENTS = [vtk.vtkCommand.ModifiedEvent]
 
-  def __init__(self, targetList):
+  def __init__(self, targetList = None):
     self.session = ProstateCryoAblationSession()
     self.zFrameRegistration = ProstateCryoAblationZFrameRegistrationStepLogic()
     self.targetList = targetList
-    self.observer = self.targetList.AddObserver(self.targetList.PointModifiedEvent, self.calculate)
-    self.observer = self.targetList.AddObserver(self.targetList.MarkupRemovedEvent, self.calculate)
+    if self.targetList:
+      self.observer = self.targetList.AddObserver(self.targetList.PointModifiedEvent, self.calculate)
+      self.observer = self.targetList.AddObserver(self.targetList.MarkupRemovedEvent, self.calculate)
     self.reset()
     self.calculate()
 

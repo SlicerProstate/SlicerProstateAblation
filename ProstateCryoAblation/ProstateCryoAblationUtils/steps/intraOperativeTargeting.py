@@ -3,11 +3,8 @@ import ast
 import qt
 import slicer
 import vtk
-from ..UserEvents import ProstateCryoAblationUserEvents
-from ..constants import ProstateCryoAblationConstants
+from ProstateCryoAblationUtils.steps.plugins.targets import ZFrameGuidanceComputation
 from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationLogicBase,ProstateCryoAblationStep
-from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
-from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
 import numpy
@@ -44,6 +41,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.segmentationEditorShow3DButton = None
     self.segmentEditorNode = None
     super(ProstateCryoAblationTargetingStep, self).__init__()
+    self.needlePathCaculator = ZFrameGuidanceComputation()
     self.needleModelNode = None
     self.affectedAreaModelNode = None
     self.segmentModelNode = None
@@ -170,8 +168,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
   def onShowAffectiveZoneToggled(self, checked):
     self.showNeedlePath = checked
-    currentGuidanceComputation = self.targetingPlugin.targetTablePlugin.targetTableModel.currentGuidanceComputation
-    if currentGuidanceComputation and self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and currentGuidanceComputation.targetList.GetNumberOfFiducials():
+    targetingTableWidget = self.targetingPlugin.fiducialsWidget
+    if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and targetingTableWidget.currentNode.GetNumberOfFiducials():
       ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked) 
       ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
@@ -184,10 +182,10 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       affectedBallAreaRadius = self.GetIceBallRadius() # unit mm
       offsetFromTip = 5.0 #unit mm
       coneHeight = 5.0
-      for targetIndex in range(currentGuidanceComputation.targetList.GetNumberOfFiducials()):
+      for targetIndex in range(targetingTableWidget.currentNode.GetNumberOfFiducials()):
         targetPosition = [0.0,0.0,0.0]
-        currentGuidanceComputation.targetList.GetNthFiducialPosition(targetIndex, targetPosition)
-        (start, end, indexX, indexY, depth, inRange) = currentGuidanceComputation.computeNearestPath(targetPosition)
+        targetingTableWidget.currentNode.GetNthFiducialPosition(targetIndex, targetPosition)
+        (start, end, indexX, indexY, depth, inRange) = self.needlePathCaculator.computeNearestPath(targetPosition)
         needleDirection = (numpy.array(end) - numpy.array(start))/numpy.linalg.norm(numpy.array(end)-numpy.array(start))
         cone = vtk.vtkConeSource()
         cone.SetRadius(1.5)

@@ -14,27 +14,13 @@ from ProstateCryoAblationUtils.steps.plugins.case import ProstateCryoAblationCas
 from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
 from ProstateCryoAblationUtils.steps.plugins.training import ProstateCryoAblationTrainingPlugin
 from ..constants import ProstateCryoAblationConstants as constants
-from ..helpers import IncomingDataMessageBox, SeriesTypeToolButton, SeriesTypeManager
+from ..helpers import SeriesTypeManager
 from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationOverViewStepLogic(ProstateCryoAblationLogicBase):
 
   def __init__(self):
     super(ProstateCryoAblationOverViewStepLogic, self).__init__()
-
-  def applyBiasCorrection(self):
-    outputVolume = slicer.vtkMRMLScalarVolumeNode()
-    outputVolume.SetName('VOLUME-PREOP-N4')
-    slicer.mrmlScene.AddNode(outputVolume)
-    params = {'inputImageName': self.session.data.initialVolume.GetID(),
-              'maskImageName': self.session.data.initialLabel.GetID(),
-              'outputImageName': outputVolume.GetID(),
-              'numberOfIterations': '500,400,300'}
-
-    slicer.cli.run(slicer.modules.n4itkbiasfieldcorrection, None, params, wait_for_completion=True)
-    self.session.data.initialVolume = outputVolume
-    self.session.data.biasCorrectionDone = True
-
 
 class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
@@ -63,8 +49,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.caseManagerPlugin = ProstateCryoAblationCaseManagerPlugin()
     self.trainingPlugin = ProstateCryoAblationTrainingPlugin()
 
-
-    self.changeSeriesTypeButton = SeriesTypeToolButton()
     self.trackTargetsButton = self.createButton("", icon=self.trackIcon, iconSize=iconSize, toolTip="Track targets",
                                                 enabled=False)
     self.skipIntraopSeriesButton = self.createButton("", icon=self.skipIcon, iconSize=iconSize,
@@ -77,7 +61,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.layout().addWidget(self.caseManagerPlugin)
     self.layout().addWidget(self.trainingPlugin)
     self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
-    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.changeSeriesTypeButton,
+    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector,
                                                 self.trackTargetsButton, self.skipIntraopSeriesButton]))
     self.layout().addStretch(1)
 
@@ -140,13 +124,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def onZFrameRegistrationSuccessful(self, caller, event):
     self.active = True
 
-  @vtk.calldata_type(vtk.VTK_STRING)
-  def onFailedPreProcessing(self, caller, event, callData):
-    if slicer.util.confirmYesNoDisplay(callData, windowTitle="ProstateCryoAblation"):
-      self.startPreProcessingModule()
-    else:
-      self.session.close()
-
   @logmethod(logging.INFO)
   def onRegistrationStatusChanged(self, caller, event):
     self.active = True
@@ -160,63 +137,12 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       slicer.util.infoDisplay(callData, windowTitle="ProstateCryoAblation")
     self.cleanup()
 
-  def onPreprocessingSuccessful(self, caller, event):
-    self.configureRedSliceNodeForPreopData()
-    self.promptUserAndApplyBiasCorrectionIfNeeded()
-
   def onActivation(self):
     super(ProstateCryoAblationOverviewStep, self).onActivation()
     self.updateIntraopSeriesSelectorTable()
 
   def onSeriesTypeManuallyAssigned(self, caller, event):
     self.updateIntraopSeriesSelectorTable()
-
-  @logmethod(logging.INFO)
-  def onPreopReceptionFinished(self, caller=None, event=None):
-    if self.invokePreProcessing():
-      self.startPreProcessingModule()
-    else:
-      slicer.util.infoDisplay("No DICOM data could be processed. Please select another directory.",
-                              windowTitle="ProstateCryoAblation")
-
-  def startPreProcessingModule(self):
-    self.setSetting('InputLocation', None, moduleName="mpReview")
-    self.layoutManager.selectModule("mpReview")
-    mpReview = slicer.modules.mpReviewWidget
-    self.setSetting('InputLocation', self.session.preprocessedDirectory, moduleName="mpReview")
-    mpReview.onReload()
-    slicer.modules.mpReviewWidget.saveButton.clicked.connect(self.returnFromPreProcessingModule)
-    self.layoutManager.selectModule(mpReview.moduleName)
-
-  def returnFromPreProcessingModule(self):
-    slicer.modules.mpReviewWidget.saveButton.clicked.disconnect(self.returnFromPreProcessingModule)
-    self.layoutManager.selectModule(self.MODULE_NAME)
-    slicer.mrmlScene.Clear(0)
-    self.session.loadPreProcessedData()
-
-  def invokePreProcessing(self):
-    if not os.path.exists(self.session.preprocessedDirectory):
-      self.logic.createDirectory(self.session.preprocessedDirectory)
-    from mpReviewPreprocessor import mpReviewPreprocessorLogic
-    self.mpReviewPreprocessorLogic = mpReviewPreprocessorLogic()
-    progress = self.createProgressDialog()
-    progress.canceled.connect(self.mpReviewPreprocessorLogic.cancelProcess)
-
-    @onReturnProcessEvents
-    def updateProgressBar(**kwargs):
-      for key, value in kwargs.iteritems():
-        if hasattr(progress, key):
-          setattr(progress, key, value)
-
-    self.mpReviewPreprocessorLogic.importStudy(self.session.preopDICOMDirectory, progressCallback=updateProgressBar)
-    success = False
-    if self.mpReviewPreprocessorLogic.patientFound():
-      success = True
-      self.mpReviewPreprocessorLogic.processData(outputDir=self.session.preprocessedDirectory, copyDICOM=False,
-                                                 progressCallback=updateProgressBar)
-    progress.canceled.disconnect(self.mpReviewPreprocessorLogic.cancelProcess)
-    progress.close()
-    return success
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onNewImageSeriesReceived(self, caller, event, callData):
@@ -281,34 +207,3 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     rowCount = self.intraopSeriesSelector.model().rowCount()
 
     self.intraopSeriesSelector.setCurrentIndex(index if index != -1 else (rowCount-1 if rowCount else -1))
-
-  def configureRedSliceNodeForPreopData(self):
-    if not self.session.data.initialVolume or not self.session.data.initialTargets:
-      return
-    self.layoutManager.setLayout(constants.LAYOUT_RED_SLICE_ONLY)
-    self.redSliceNode.SetOrientationToAxial()
-    self.redSliceNode.RotateToVolumePlane(self.session.data.initialVolume)
-    self.redSliceNode.SetUseLabelOutline(True)
-    self.redCompositeNode.SetLabelOpacity(1)
-    self.targetingPlugin.targetTablePlugin.currentTargets = self.session.data.initialTargets
-
-  def promptUserAndApplyBiasCorrectionIfNeeded(self):
-    if not self.session.data.resumed and not self.session.data.completed:
-      if slicer.util.confirmYesNoDisplay("Was an endorectal coil used for preop image acquisition?",
-                                         windowTitle="ProstateCryoAblation"):
-        customProgressbar = CustomStatusProgressbar()
-        customProgressbar.busy = True
-        currentModule = slicer.util.getModuleGui(self.MODULE_NAME)
-        if currentModule:
-          currentModule.parent().enabled = False
-        try:
-          customProgressbar.updateStatus("Bias correction running!")
-          slicer.app.processEvents()
-          self.logic.applyBiasCorrection()
-        except AttributeError:
-          pass
-        finally:
-          customProgressbar.busy = False
-          if currentModule:
-            currentModule.parent().enabled = True
-        customProgressbar.updateStatus("Bias correction done!")
