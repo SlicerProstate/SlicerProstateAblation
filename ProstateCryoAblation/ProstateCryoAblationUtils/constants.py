@@ -13,12 +13,6 @@ class ProstateCryoAblationConstants(object):
   LAYOUT_SIDE_BY_SIDE = slicer.vtkMRMLLayoutNode.SlicerLayoutSideBySideView
   ALLOWED_LAYOUTS = [LAYOUT_SIDE_BY_SIDE, LAYOUT_FOUR_UP, LAYOUT_RED_SLICE_ONLY]
 
-  COVER_PROSTATE = "COVER PROSTATE"
-  COVER_TEMPLATE = "COVER TEMPLATE"
-  NEEDLE_IMAGE = "GUIDANCE"
-
-  TRACKABLE_IMAGE_TYPES = [COVER_PROSTATE, COVER_TEMPLATE, NEEDLE_IMAGE]
-
   ZFrame_INSTRUCTION_STEPS = {1: "Scroll and click into ZFrame center to set ROI center",
                               2: "Click outside of upper right ZFrame corner to set ROI border"}
 

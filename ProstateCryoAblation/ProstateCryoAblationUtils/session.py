@@ -6,7 +6,7 @@ from sessionData import SessionData
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
 from helpers import SeriesTypeManager
 
-from .exceptions import DICOMValueError, UnknownSeriesError
+from SlicerDevelopmentToolboxUtils.exceptions import DICOMValueError, UnknownSeriesError
 
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS, FileExtension, STYLE
 from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
@@ -14,7 +14,7 @@ from SlicerDevelopmentToolboxUtils.helpers import SmartDICOMReceiver
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin
 from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar
 from SlicerDevelopmentToolboxUtils.decorators import singleton
-from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse, onReturnProcessEvents, onExceptionReturnNone
+from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse, onReturnProcessEvents
 from SlicerDevelopmentToolboxUtils.module.session import StepBasedSession
 
 
@@ -123,13 +123,13 @@ class ProstateCryoAblationSession(StepBasedSession):
   def movingTargets(self):
     self._movingTargets = getattr(self, "_movingTargets", None)
     if self.isCurrentSeriesCoverProstate():
-      return self.data.initialTargets
+      return self.data.intraOpTargets
     return self._movingTargets
 
   @movingTargets.setter
   def movingTargets(self, value):
     if self.isCurrentSeriesCoverProstate():
-      self.data.initialTargets = value
+      self.data.intraOpTargets = value
     self._movingTargets = value
     
   @property
@@ -268,13 +268,13 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self.data.zFrameRegistrationResult:
       self.setupLoadedTransform()
     self.data.resumed = not self.data.completed
-    if self.data.initialTargets:
-      self.movingTargets = self.data.initialTargets
-      self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+    if self.data.intraOpTargets:
+      self.movingTargets = self.data.intraOpTargets
+      self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.intraOpTargets
       self.steps[0].targetingPlugin.targetTablePlugin.visible = True
-      self.steps[2].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+      self.steps[2].targetingPlugin.targetTablePlugin.currentTargets = self.data.intraOpTargets
       self.steps[2].targetingPlugin.targetTablePlugin.visible = True
-      self.steps[3].targetingPlugin.targetTablePlugin.currentTargets = self.data.initialTargets
+      self.steps[3].targetingPlugin.targetTablePlugin.currentTargets = self.data.intraOpTargets
       self.steps[3].targetingPlugin.targetTablePlugin.visible = True
       self.setupLoadedTargets()
     self.startIntraopDICOMReceiver()
@@ -285,8 +285,8 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.steps[1].applyZFrameTransform()
 
   def setupLoadedTargets(self):
-    if self.data.initialTargets:
-      targets = self.data.initialTargets
+    if self.data.intraOpTargets:
+      targets = self.data.intraOpTargets
       ModuleWidgetMixin.setFiducialNodeVisibility(targets, show=True)
       self.applyDefaultTargetDisplayNode(targets)
       self.markupsLogic.JumpSlicesToNthPointInMarkup(targets.GetID(), 0)
@@ -483,7 +483,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       return message
 
 
-    self.data.initialTargetsPath = os.path.join(directory, 'Targets')
+    self.data.intraOpTargetsPath = os.path.join(directory, 'Targets')
     seriesMap =[]
     self.loadImageAndLabel(seriesMap)
 

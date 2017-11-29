@@ -64,8 +64,8 @@ class SessionData(ModuleLogicMixin):
 
     self.initialVolume = None
     self.initialLabel = None
-    self.initialTargets = None
-    self.initialTargetsPath = None
+    self.intraOpTargets = None
+    self.intraOpTargetsPath = None
 
     self.zFrameRegistrationResult = None
 
@@ -98,10 +98,11 @@ class SessionData(ModuleLogicMixin):
 
       self.readProcedureEvents(data["procedureEvents"])
 
-      if "initialTargets" in data.keys():
-        self.initialTargets = self._loadOrGetFileData(directory,
-                                                      data["initialTargets"], slicer.util.loadMarkupsFiducialList)
-        self.initialTargetsPath = os.path.join(directory, data["initialTargets"])
+      if "intraOpTargets" in data.keys():
+        self.intraOpTargets = self._loadOrGetFileData(directory,
+                                                      data["intraOpTargets"], slicer.util.loadMarkupsFiducialList)
+        self.intraOpTargetsPath = os.path.join(directory, data["intraOpTargets"])
+        self.intraOpTargets.SetLocked(True)
 
       if "zFrameRegistration" in data.keys():
         zFrameRegistration = data["zFrameRegistration"]
@@ -163,9 +164,9 @@ class SessionData(ModuleLogicMixin):
           return name + ".seg.nrrd"
       return None
 
-    def saveInitialTargets():
-      success, name = self.saveNodeData(self.initialTargets, outputDir, FileExtension.FCSV,
-                                        name="Initial_Targets", overwrite=True)
+    def saveIntraOpTargets():
+      success, name = self.saveNodeData(self.intraOpTargets, outputDir, FileExtension.FCSV,
+                                        name="IntraopTargets", overwrite=True)
       self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
       return name + FileExtension.FCSV
 
@@ -193,8 +194,8 @@ class SessionData(ModuleLogicMixin):
     if self.zFrameRegistrationResult:
       data["zFrameRegistration"] = self.zFrameRegistrationResult.save(outputDir)
 
-    if self.initialTargets:
-      data["initialTargets"] = saveInitialTargets()
+    if self.intraOpTargets:
+      data["intraOpTargets"] = saveIntraOpTargets()
 
     if self.initialVolume:
       data["initialVolume"] = saveInitialVolume()

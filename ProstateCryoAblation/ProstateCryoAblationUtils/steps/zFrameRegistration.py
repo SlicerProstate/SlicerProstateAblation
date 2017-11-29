@@ -81,7 +81,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.zFrameTransform = None
 
     self.showTemplatePath = False
-    self.showNeedlePath = False
 
     self.tempModelNode = None
     self.pathModelNode = None
@@ -346,7 +345,6 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     iconSize = qt.QSize(24, 24)
     self.showZFrameModelButton = self.createButton("", icon=self.zFrameIcon, iconSize=iconSize, checkable=True, toolTip="Display zFrame model")
     self.showTemplateButton = self.createButton("", icon=self.templateIcon, iconSize=iconSize, checkable=True, toolTip="Display template")
-    # self.showNeedlePathButton = self.createButton("", icon=self.needleIcon, iconSize=iconSize, checkable=True, toolTip="Display needle path")
     self.showTemplatePathButton = self.createButton("", icon=self.templateIcon, iconSize=iconSize, checkable=True, toolTip="Display template paths")
     self.viewSettingButtons = [self.showZFrameModelButton, self.showTemplateButton]
 

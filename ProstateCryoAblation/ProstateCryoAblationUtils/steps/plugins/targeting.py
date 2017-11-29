@@ -19,7 +19,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
 
   def setup(self):
     super(ProstateCryoAblationTargetingPlugin, self).setup()
-    self.targetTablePlugin = ProstateCryoAblationTargetTablePlugin()
+    self.targetTablePlugin = ProstateCryoAblationTargetTablePlugin(movingEnabled=True)
     self.addPlugin(self.targetTablePlugin)
 
     self.targetingGroupBox = qt.QGroupBox("Target Placement")
@@ -91,6 +91,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.addSliceAnnotations()
     self.fiducialsWidget.show()
     self.targetTablePlugin.visible = False
+    self.targetTablePlugin.disableTargetMovingMode()
     self.setupFourUpView(self.session.currentSeriesVolume, clearLabels=False)
     self.invokeEvent(self.TargetingStartedEvent)
 
@@ -104,5 +105,4 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
       self.targetTablePlugin.currentTargets = self.fiducialsWidget.currentNode
     else:
       self.session.movingTargets = None
-
     self.invokeEvent(self.TargetingFinishedEvent)

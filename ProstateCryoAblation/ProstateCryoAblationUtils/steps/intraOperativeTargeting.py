@@ -24,7 +24,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   HIDENEEDLE = 0
   ICESEED = 1
   ICEROD = 2
-
   @property
   def NeedleType(self):
     return self._NeedleType
@@ -108,6 +107,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
     self.targetingPlugin.addEventObserver(self.targetingPlugin.TargetingStartedEvent, self.onTargetingStarted)
     self.targetingPlugin.addEventObserver(self.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
+    self.targetingPlugin.targetTablePlugin.addEventObserver(self.targetingPlugin.targetTablePlugin.TargetPosUpdatedEvent,
+                                     self.updateAffectiveZone)
     self.addPlugin(self.targetingPlugin)
     self.layout().addWidget(self.targetingPlugin)
 
@@ -167,15 +168,22 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     return needleRadius
 
   def onShowAffectiveZoneToggled(self, checked):
-    self.showNeedlePath = checked
+    ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
+    ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked)
+    ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
+    ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)
+    self.updateAffectiveZone()
+    if not self.segmentationEditorShow3DButton.isChecked() == checked:
+      self.segmentationEditorShow3DButton.checked = checked
+    if self.session.data.segmentModelNode:
+      if not self.session.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
+        self.session.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
+
+  def updateAffectiveZone(self, caller = None, event = None):
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
     if self.targetingPlugin.fiducialsWidget.visible:
       targetingNode = self.targetingPlugin.fiducialsWidget.currentNode
     if self.needleModelNode and self.affectedAreaModelNode and self.session.approvedCoverTemplate and targetingNode.GetNumberOfFiducials():
-      ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
-      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked) 
-      ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
-      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)  
       needleModelAppend = vtk.vtkAppendPolyData()
       affectedBallAreaAppend = vtk.vtkAppendPolyData()
       zFrameTransformMatrix = self.session.data.zFrameRegistrationResult.transform.GetMatrixTransformToParent()
@@ -241,15 +249,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
-
-    """
-    Show segmentations
-    """
-    if not self.segmentationEditorShow3DButton.isChecked() == checked:
-      self.segmentationEditorShow3DButton.checked = checked
-    if self.session.data.segmentModelNode:
-      if not self.session.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
-        self.session.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
     pass  
 
   @vtk.calldata_type(vtk.VTK_STRING)
@@ -268,7 +267,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def loadInitialData(self):
     self.session.movingLabel = self.session.data.initialLabel
     self.session.movingVolume = self.session.data.initialVolume
-    self.session.movingTargets = self.session.data.initialTargets
+    self.session.movingTargets = self.session.data.intraOpTargets
 
   def onActivation(self):
     self.session.fixedVolume = self.session.currentSeriesVolume

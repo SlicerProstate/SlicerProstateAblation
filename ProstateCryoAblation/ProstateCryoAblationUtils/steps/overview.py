@@ -189,7 +189,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       self.selectMostRecentEligibleSeries()
 
   def selectMostRecentEligibleSeries(self):
-    substring = self.getSetting("NEEDLE_IMAGE")
     seriesTypeManager = SeriesTypeManager()
     self.intraopSeriesSelector.blockSignals(True)
     self.intraopSeriesSelector.setCurrentIndex(-1)
@@ -197,11 +196,8 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     index = -1
     for item in list(reversed(range(len(self.session.seriesList)))):
       series = self._seriesModel.item(item).text()
-      if substring in seriesTypeManager.getSeriesType(series):
+      if seriesTypeManager.isWorkableSeries(series):
         index = self.intraopSeriesSelector.findText(series)
         break
-      elif self.session.seriesTypeManager.isVibe(series) and index == -1:
-        index = self.intraopSeriesSelector.findText(series)
     rowCount = self.intraopSeriesSelector.model().rowCount()
-
     self.intraopSeriesSelector.setCurrentIndex(index if index != -1 else (rowCount-1 if rowCount else -1))

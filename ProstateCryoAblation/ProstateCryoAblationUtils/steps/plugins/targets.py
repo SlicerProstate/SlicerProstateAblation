@@ -6,9 +6,8 @@ from ...constants import ProstateCryoAblationConstants as constants
 from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStepLogic
 from ...session import ProstateCryoAblationSession
-from ProstateCryoAblationUtils.helpers import SeriesTypeManager
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
-from SlicerDevelopmentToolboxUtils.decorators import logmethod, onModuleSelected
+from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 
 
@@ -291,6 +290,8 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
   NAME = "TargetTable"
   LogicClass = ProstateCryoAblationTargetTableLogic
 
+  TargetPosUpdatedEvent = vtk.vtkCommand.UserEvent + 337
+
   @property
   def lastSelectedModelIndex(self):
     return self.session.lastSelectedModelIndex
@@ -433,7 +434,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
       self.disableTargetMovingMode()
     self.lastSelectedModelIndex = modelIndex
     if not self.currentTargets:
-      self.currentTargets = self.session.data.initialTargets
+      self.currentTargets = self.session.data.intraOpTargets
     self.jumpSliceNodesToNthTarget(modelIndex.row())
     self.targetTableModel.currentTargetIndex = self.lastSelectedModelIndex.row()
     self.updateSelection(self.lastSelectedModelIndex.row())
@@ -449,7 +450,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
   def jumpSliceNodesToNthTarget(self, targetIndex):
     currentTargetsSliceNodes = []
     if self.layoutManager.layout in [constants.LAYOUT_RED_SLICE_ONLY, constants.LAYOUT_SIDE_BY_SIDE]:
-      targets = self.session.data.initialTargets
+      targets = self.session.data.intraOpTargets
       if self.session.currentSeries and self.session.seriesTypeManager.isVibe(self.session.currentSeries):
         targets = self.targetTableModel.targetList
       self.jumpSliceNodeToTarget(self.redSliceNode, targets, targetIndex)
@@ -518,12 +519,17 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
   def onViewerClickEvent(self, observee=None, event=None):
     posXY = observee.GetEventPosition()
     widget = self.getWidgetForInteractor(observee)
-    posRAS = self.xyToRAS(widget.sliceLogic(), posXY)
     if self.currentlyMovedTargetModelIndex is not None:
-      self.currentResult.targets.isGoingToBeMoved(self.targetTableModel.targetList,
-                                                  self.currentlyMovedTargetModelIndex.row())
+      posRAS = self.xyToRAS(widget.sliceLogic(), posXY)
       self.targetTableModel.targetList.SetNthFiducialPositionFromArray(self.currentlyMovedTargetModelIndex.row(),
                                                                        posRAS)
+      guidance = self.targetTableModel.getOrCreateNewGuidanceComputation(
+        self.targetTableModel.targetList)
+      needleSnapPosition = guidance.getNeedleEndPos(self.currentlyMovedTargetModelIndex.row())
+      self.targetTableModel.targetList.SetNthFiducialPositionFromArray(self.currentlyMovedTargetModelIndex.row(),
+                                                                       needleSnapPosition)
+      self.invokeEvent(self.TargetPosUpdatedEvent)
+
     self.disableTargetMovingMode()
 
   def getWidgetForInteractor(self, observee):
@@ -533,13 +539,4 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
       if interactor is observee:
         return widget
     return None
-
-  # def updateNeedleModel(self, caller=None, event=None):
-  #   if self.showNeedlePathButton.checked and self.logic.zFrameRegistrationSuccessful:
-  #     modelIndex = self.lastSelectedModelIndex
-  #     try:
-  #       start, end = self.targetTableModel.currentGuidanceComputation.needleStartEndPositions[modelIndex.row()]
-  #       self.logic.createNeedleModelNode(start, end)
-  #     except KeyError:
-  #       self.logic.removeNeedleModelNode()
 

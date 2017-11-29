@@ -35,7 +35,7 @@ class ConfigurationParser(ModuleWidgetMixin):
       self.setSetting("OTHER_IMAGE", config.get('Series Descriptions', 'OTHER_IMAGE'))
 
     if not self.getSetting("SERIES_TYPES"):
-      seriesTypes = [config.get('Series Descriptions',x) for x in ['COVER_TEMPLATE', 'COVER_PROSTATE','NEEDLE_IMAGE','OTHER_IMAGE']]
+      seriesTypes = [config.get('Series Descriptions',x) for x in ['COVER_TEMPLATE', 'COVER_PROSTATE','NEEDLE_IMAGE','VIBE_IMAGE', 'OTHER_IMAGE']]
       self.setSetting("SERIES_TYPES", seriesTypes)
 
     colorFileName = config.get('Color File', 'FileName')
