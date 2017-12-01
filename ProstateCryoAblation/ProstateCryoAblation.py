@@ -11,7 +11,7 @@ from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOvervie
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStep
 from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
 from ProstateCryoAblationUtils.steps.intraOperativeGuidance import ProstateCryoAblationGuidanceStep
-
+from ProstateCryoAblationUtils.steps.plugins.buttons import ScreenShotButton
 from SlicerDevelopmentToolboxUtils.buttons import *
 from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
@@ -114,11 +114,12 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.layoutButtons = [self.redOnlyLayoutButton, self.sideBySideLayoutButton, self.fourUpLayoutButton]
     #self.crosshairButton = CrosshairButton()
 
-    self.wlEffectsToolButton = WindowLevelEffectsButton()
+    self.screenShotButton = ScreenShotButton()
+    self.screenShotButton.caseResultDir = ""
     self.settingsButton = ModuleSettingsButton(self.moduleName)
     self.showAnnotationsButton = self.createButton("", icon=self.textInfoIcon, iconSize=iconSize, checkable=True, toolTip="Display annotations", checked=True)
     viewSettingButtons = [self.redOnlyLayoutButton, self.fourUpLayoutButton,
-                          self.wlEffectsToolButton, self.settingsButton, self.showAnnotationsButton ]
+                          self.settingsButton, self.showAnnotationsButton, self.screenShotButton]
     
     for step in self.session.steps:
       viewSettingButtons += step.viewSettingButtons
@@ -130,7 +131,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   def resetViewSettingButtons(self):
     for step in self.session.steps:
       step.resetViewSettingButtons()
-    self.wlEffectsToolButton.checked = False
     #self.crosshairButton.checked = False
 
   def setupTabBarNavigation(self):
@@ -144,9 +144,16 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     
   def setupSessionObservers(self):
     self.session.addEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
+    self.session.addEventObserver(self.session.NewCaseStartedEvent, self.onUpdateScreenShotDir)
+    self.session.addEventObserver(self.session.CaseOpenedEvent, self.onUpdateScreenShotDir)
 
   def removeSessionObservers(self):
     self.session.removeEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
+    self.session.removeEventObserver(self.session.NewCaseStartedEvent, self.onUpdateScreenShotDir)
+    self.session.removeEventObserver(self.session.CaseOpenedEvent, self.onUpdateScreenShotDir)
+
+  def onUpdateScreenShotDir(self, caller, event):
+    self.screenShotButton.caseResultDir = self.session.outputDirectory
 
   def onShowAnnotationsToggled(self, checked):
     allSliceAnnotations = self.sliceAnnotations[:]
