@@ -38,6 +38,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.segmentationEditorNoneButton = None
     self.segmentationEditorShow3DButton = None
+    self.segmentationEditorMaskOverWriteCombox = None
     self.segmentEditorNode = None
     super(ProstateCryoAblationTargetingStep, self).__init__()
     self.needlePathCaculator = ZFrameGuidanceComputation()
@@ -90,6 +91,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       slicer.mrmlScene.AddNode(self.segmentEditorNode)   
     self.segmentationEditor.setMRMLScene(slicer.mrmlScene)
     self.segmentationEditor.setMRMLSegmentEditorNode(self.segmentEditorNode)
+    self.segmentationEditorMaskOverWriteCombox.setCurrentIndex(self.segmentationEditorMaskOverWriteCombox.findText('None'))
     
   def resetAndInitialize(self):
     self.session.retryMode = False
@@ -98,10 +100,17 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def setup(self):
     super(ProstateCryoAblationTargetingStep, self).setup()
     self.setupTargetingPlugin()
+    self.setupFiducialWidget()
     self.setupSegmentationWidget()
     self.setupAdditionalViewSettingButtons()
     self.addNavigationButtons()
     self.layout().addStretch(1)
+
+  def setupFiducialWidget(self):
+    self.targetingPlugin.fiducialsWidget.addEventObserver(slicer.vtkMRMLMarkupsNode().MarkupAddedEvent,
+                                     self.updateAffectiveZone)
+    self.targetingPlugin.fiducialsWidget.addEventObserver(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent,
+                                                          self.updateAffectiveZone)
 
   def setupTargetingPlugin(self):
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
@@ -121,6 +130,15 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       if child.className() == 'ctkMenuButton':
         if child.text == ' Show 3D':
           self.segmentationEditorShow3DButton = child
+      if child.className() == 'ctkCollapsibleGroupBox':
+        if child.title == 'Masking':
+          for grandchild in child.children():
+            if grandchild.className() == 'QComboBox':
+              if grandchild.findText('All segments') > -1 and \
+                 grandchild.findText('Visible segments') > -1 and \
+                 grandchild.findText('None') > -1:
+                self.segmentationEditorMaskOverWriteCombox = grandchild
+
 
 
   def setupAdditionalViewSettingButtons(self):
@@ -148,24 +166,13 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.showAffectiveZoneButton.connect('toggled(bool)', self.onShowAffectiveZoneToggled)
 
   def GetIceBallRadius(self):
-    needleRadius =[0.0]*3
-    if self.NeedleType == self.HIDENEEDLE:
-      needleRadius[0] = 0.0
-      needleRadius[1] = 0.0
-      needleRadius[2] = 0.0
-    elif self.NeedleType == self.ICESEED:
-      needleRadius[0] = 20.0 / 2.0
-      needleRadius[1] = 20.0 / 2.0
-      needleRadius[2] = 25.0 / 2.0
-    elif self.NeedleType == self.ICEROD:
-      needleRadius[0] = 25.0 / 2.0
-      needleRadius[1] = 25.0 / 2.0
-      needleRadius[2] = 35.0 / 2.0
+    if str(self.getSetting("NeedleType")).lower()== "icerod":
+      return numpy.array(self.getSetting("NeedleRadius_ICEROD").split())
+    elif str(self.getSetting("NeedleType")).lower()== "iceseed":
+      return numpy.array(self.getSetting("NeedleRadius_ICESEED").split())
     else:
-      needleRadius[0] = 20.0 / 2.0
-      needleRadius[1] = 20.0 / 2.0
-      needleRadius[2] = 25.0 / 2.0
-    return needleRadius
+      needleRadius = numpy.array([0,0,0])
+      return needleRadius
 
   def onShowAffectiveZoneToggled(self, checked):
     ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
@@ -229,14 +236,14 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
         #--------------
         #Begin of affectedBallArea
         affectedBallArea = vtk.vtkParametricEllipsoid()
-        affectedBallArea.SetXRadius(affectedBallAreaRadius[0])
-        affectedBallArea.SetYRadius(affectedBallAreaRadius[1])
-        affectedBallArea.SetZRadius(affectedBallAreaRadius[2])
+        affectedBallArea.SetXRadius(float(affectedBallAreaRadius[0]))
+        affectedBallArea.SetYRadius(float(affectedBallAreaRadius[1]))
+        affectedBallArea.SetZRadius(float(affectedBallAreaRadius[2]))
         affectedBallAreaSource = vtk.vtkParametricFunctionSource()
         affectedBallAreaSource.SetParametricFunction(affectedBallArea)
         affectedBallAreaSource.SetScalarModeToV()
         affectedBallAreaSource.Update()
-        translatePart = start+(depth+offsetFromTip-affectedBallAreaRadius[2])*needleDirection
+        translatePart = start+(depth+offsetFromTip-float(affectedBallAreaRadius[2]))*needleDirection
         for index, posElement in enumerate(translatePart):
           zFrameTransformMatrix.SetElement(index, 3, posElement)
         transform.SetMatrix(zFrameTransformMatrix)
@@ -331,7 +338,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     pass
 
   def onTargetingFinished(self, caller, event):
-    self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(True)
+    if self.targetingPlugin.targetTablePlugin.currentTargets:
+      self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(True)
     self.finishStepButton.enabled = True
     self.backButton.enabled = True
     pass

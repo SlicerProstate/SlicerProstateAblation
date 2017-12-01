@@ -166,7 +166,7 @@ class SessionData(ModuleLogicMixin):
 
     def saveIntraOpTargets():
       success, name = self.saveNodeData(self.intraOpTargets, outputDir, FileExtension.FCSV,
-                                        name="IntraopTargets", overwrite=True)
+                                        name="IntraOpTargets", overwrite=True)
       self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
       return name + FileExtension.FCSV
 

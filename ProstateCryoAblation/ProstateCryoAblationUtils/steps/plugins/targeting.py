@@ -1,5 +1,6 @@
 import qt
 import vtk
+import slicer
 from ...constants import ProstateCryoAblationConstants as constants
 from ..base import ProstateCryoAblationPlugin
 
@@ -25,7 +26,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.targetingGroupBox = qt.QGroupBox("Target Placement")
     self.targetingGroupBoxLayout = qt.QFormLayout()
     self.targetingGroupBox.setLayout(self.targetingGroupBoxLayout)
-    self.fiducialsWidget = TargetCreationWidget(DEFAULT_FIDUCIAL_LIST_NAME="IntraopTargets",
+    self.fiducialsWidget = TargetCreationWidget(DEFAULT_FIDUCIAL_LIST_NAME="IntraOpTargets",
                                                 ICON_SIZE=qt.QSize(36, 36))
     self.fiducialsWidget.addEventObserver(self.fiducialsWidget.StartedEvent, self.onTargetingStarted)
     self.fiducialsWidget.addEventObserver(self.fiducialsWidget.FinishedEvent, self.onTargetingFinished)
@@ -76,8 +77,10 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
   def onFiducialListSelected(self, node):
     if node:
       self.fiducialsWidget.currentNode = node
-      self.fiducialsWidget.currentNode.AddObserver(self.fiducialsWidget.currentNode.MarkupAddedEvent,
+      self.fiducialsWidget.currentNode.AddObserver(slicer.vtkMRMLMarkupsNode().MarkupAddedEvent,
                                                    self.onEndTargetPlacement)
+      self.fiducialsWidget.currentNode.AddObserver(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent,
+                                                   self.onEndTargetRemove)
 
   def onEndTargetPlacement(self,interactionNode = None, event = None):
     if self.fiducialsWidget.currentNode:
@@ -85,14 +88,17 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
       guidance= self.targetTablePlugin.targetTableModel.getOrCreateNewGuidanceComputation(self.fiducialsWidget.currentNode)
       needleSnapPosition = guidance.getNeedleEndPos(currentTargetIndex)
       self.fiducialsWidget.currentNode.SetNthFiducialPositionFromArray(currentTargetIndex,needleSnapPosition)
+      self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupAddedEvent)
     pass
+
+  def onEndTargetRemove(self, caller, event):
+    self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent)
 
   def onTargetingStarted(self, caller, event):
     self.addSliceAnnotations()
     self.fiducialsWidget.show()
     self.targetTablePlugin.visible = False
     self.targetTablePlugin.disableTargetMovingMode()
-    self.setupFourUpView(self.session.currentSeriesVolume, clearLabels=False)
     self.invokeEvent(self.TargetingStartedEvent)
 
   def onTargetingFinished(self, caller, event):

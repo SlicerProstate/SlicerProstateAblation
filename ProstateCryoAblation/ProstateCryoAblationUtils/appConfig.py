@@ -50,3 +50,13 @@ class ConfigurationParser(ModuleWidgetMixin):
         (not config.get('Evaluation', 'Default_Layout') == self.getSetting("DEFAULT_EVALUATION_LAYOUT")) :
       self.setSetting("DEFAULT_EVALUATION_LAYOUT", config.get('Evaluation', 'Default_Layout'))
 
+
+    self.setSetting("NeedleRadius_ICESEED", config.get('NeedleRadius', 'ICESEED'))
+    self.setSetting("NeedleRadius_ICEROD", config.get('NeedleRadius', 'ICEROD'))
+
+    if not self.getSetting("NeedleType") or \
+        (not config.get('CurrentNeedleType', 'NeedleType') == self.getSetting("NeedleType")) :
+      self.setSetting("NeedleType", config.get('CurrentNeedleType', 'NeedleType'))
+
+
+
