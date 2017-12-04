@@ -330,8 +330,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
 
   def onTargetingStarted(self, caller, event):
-    if self.showAffectiveZoneButton.isChecked():
-      self.showAffectiveZoneButton.click()
     if self.targetingPlugin.targetTablePlugin.currentTargets:
       self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(False)
     self.backButton.enabled = False

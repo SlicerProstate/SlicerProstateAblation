@@ -15,5 +15,3 @@ class ProstateCryoAblationConstants(object):
 
   ZFrame_INSTRUCTION_STEPS = {1: "Scroll and click into ZFrame center to set ROI center",
                               2: "Click outside of upper right ZFrame corner to set ROI border"}
-
-  IntraopSeriesSelectorToolTip = "Select a serial to process"

@@ -1,4 +1,4 @@
-from SlicerDevelopmentToolboxUtils.buttons import LayoutButton, CheckableIconButton, BasicIconButton
+from SlicerDevelopmentToolboxUtils.buttons import BasicIconButton
 import os
 import qt
 import slicer

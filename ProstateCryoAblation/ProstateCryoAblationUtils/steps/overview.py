@@ -67,9 +67,10 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def setupIntraopSeriesSelector(self):
     self.intraopSeriesSelector = qt.QComboBox()
     self.intraopSeriesSelector.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum)
+    self.intraopSeriesSelector.setMinimumContentsLength(20)
+    self.intraopSeriesSelector.setSizeAdjustPolicy(qt.QComboBox().AdjustToMinimumContentsLength)
     self._seriesModel = qt.QStandardItemModel()
     self.intraopSeriesSelector.setModel(self._seriesModel)
-    self.intraopSeriesSelector.setToolTip(constants.IntraopSeriesSelectorToolTip)
 
   def setupConnections(self):
     super(ProstateCryoAblationOverviewStep, self).setupConnections()
@@ -117,6 +118,8 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       model = self.intraopSeriesSelector.model()
       index = next((i for i in range(model.rowCount()) if model.item(i).text() == callData), None)
       self.intraopSeriesSelector.currentIndex = index
+      self.intraopSeriesSelector.setToolTip(callData)
+      self.setupFourUpView(self.session.currentSeriesVolume)
 
   @logmethod(logging.INFO)
   def onZFrameRegistrationSuccessful(self, caller, event):

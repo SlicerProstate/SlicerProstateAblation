@@ -82,7 +82,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.setupPatientWatchBox()
     self.setupViewSettingGroupBox()
     self.setupTabBarNavigation()
-    self.setupConnections()
     self.setupSessionObservers()
     #self.layout.addStretch()
 
@@ -117,9 +116,8 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.screenShotButton = ScreenShotButton()
     self.screenShotButton.caseResultDir = ""
     self.settingsButton = ModuleSettingsButton(self.moduleName)
-    self.showAnnotationsButton = self.createButton("", icon=self.textInfoIcon, iconSize=iconSize, checkable=True, toolTip="Display annotations", checked=True)
     viewSettingButtons = [self.redOnlyLayoutButton, self.fourUpLayoutButton,
-                          self.settingsButton, self.showAnnotationsButton, self.screenShotButton]
+                          self.settingsButton, self.screenShotButton]
     
     for step in self.session.steps:
       viewSettingButtons += step.viewSettingButtons
@@ -138,9 +136,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.tabWidget.addEventObserver(self.tabWidget.AvailableLayoutsChangedEvent, self.onAvailableLayoutsChanged)
     self.layout.addWidget(self.tabWidget)
     self.tabWidget.hideTabs()
-
-  def setupConnections(self):
-    self.showAnnotationsButton.connect('toggled(bool)', self.onShowAnnotationsToggled)
     
   def setupSessionObservers(self):
     self.session.addEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
@@ -154,9 +149,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
 
   def onUpdateScreenShotDir(self, caller, event):
     self.screenShotButton.caseResultDir = self.session.outputDirectory
-
-  def onShowAnnotationsToggled(self, checked):
-    allSliceAnnotations = self.sliceAnnotations[:]
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onNewFileIndexed(self, caller, event, callData):
