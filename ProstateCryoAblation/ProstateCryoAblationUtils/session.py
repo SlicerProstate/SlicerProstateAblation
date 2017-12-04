@@ -33,14 +33,13 @@ class ProstateCryoAblationSession(StepBasedSession):
   SegmentationCancelledEvent = vtk.vtkCommand.UserEvent + 144
 
   CurrentSeriesChangedEvent = vtk.vtkCommand.UserEvent + 151
-  RegistrationStatusChangedEvent = vtk.vtkCommand.UserEvent + 152
 
   InitiateZFrameCalibrationEvent = vtk.vtkCommand.UserEvent + 160
   InitiateTargetingEvent = vtk.vtkCommand.UserEvent + 161
-  InitiateRegistrationEvent = vtk.vtkCommand.UserEvent + 162
-  InitiateEvaluationEvent = vtk.vtkCommand.UserEvent + 163
 
   NeedleGuidanceEvent = vtk.vtkCommand.UserEvent + 164
+
+  AffectedAreaDisplayChangedEvent = vtk.vtkCommand.UserEvent + 165
 
   SeriesTypeManuallyAssignedEvent = SeriesTypeManager.SeriesTypeManuallyAssignedEvent
 
@@ -181,6 +180,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.retryMode = False
     self.lastSelectedModelIndex = None
     self.previousStep = None
+    self.displayForTargets = dict()
 
   def initializeColorNodes(self):
     self.segmentedColorName = self.getSetting("Segmentation_Color_Name")
@@ -537,21 +537,6 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def getMostRecentTargetsFile(self, path):
     return self.getMostRecentFile(path, FileExtension.FCSV)
-
-  def getColorForSelectedSeries(self, series=None):
-    series = series if series else self.currentSeries
-    if series in [None, '']:
-      return STYLE.WHITE_BACKGROUND
-    style = STYLE.YELLOW_BACKGROUND
-    if not self.isTrackingPossible(series):
-      if self.data.registrationResultWasApproved(series) or \
-              (self.zFrameRegistrationSuccessful and self.seriesTypeManager.isCoverTemplate(series)):
-        style = STYLE.GREEN_BACKGROUND
-      elif self.data.registrationResultWasSkipped(series):
-        style = STYLE.RED_BACKGROUND
-      elif self.data.registrationResultWasRejected(series):
-        style = STYLE.GRAY_BACKGROUND
-    return style
 
   def isTrackingPossible(self, series):
     if self.data.completed:

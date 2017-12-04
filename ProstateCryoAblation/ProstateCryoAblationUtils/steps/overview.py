@@ -101,8 +101,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     if selectedSeries:
       trackingPossible = self.session.isTrackingPossible(selectedSeries)
       self.setIntraopSeriesButtons(trackingPossible, selectedSeries)
-    colorStyle = self.session.getColorForSelectedSeries(self.intraopSeriesSelector.currentText)
-    self.intraopSeriesSelector.setStyleSheet("QComboBox{%s} QToolTip{background-color: white;}" % colorStyle)
+    self.intraopSeriesSelector.setStyleSheet("QComboBox{'background-color: green;'} QToolTip{background-color: white;}")
 
   def setIntraopSeriesButtons(self, trackingPossible, selectedSeries):
     trackingPossible = trackingPossible and not self.session.data.completed
@@ -186,8 +185,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
       self._seriesModel.setData(sItem.index(), color, qt.Qt.BackgroundRole)
     self.intraopSeriesSelector.setCurrentIndex(currentIndex)
     self.intraopSeriesSelector.blockSignals(False)
-    colorStyle = self.session.getColorForSelectedSeries(self.intraopSeriesSelector.currentText)
-    self.intraopSeriesSelector.setStyleSheet("QComboBox{%s} QToolTip{background-color: white;}" % colorStyle)
+    self.intraopSeriesSelector.setStyleSheet("QComboBox{'background-color: green;'} QToolTip{background-color: white;}")
     if self.active and not self.session.isLoading():
       self.selectMostRecentEligibleSeries()
 

@@ -11,16 +11,62 @@ from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 
 
+class MyCheckBox(qt.QWidget):
+  def __init__(self, parent=None):
+    qt.QWidget.__init__(self, parent)
+    # create a centered checkbox
+    self.cb = qt.QCheckBox(parent)
+    cbLayout = qt.QHBoxLayout()
+    cbLayout.addWidget(self.cb, 0, qt.Qt.AlignCenter)
+    self.setLayout(cbLayout)
+    self.cb.toggled.connect(self.amClicked)
+
+  def amClicked(self):
+    self.cb.clicked.emit()
+
+
+class CheckBoxDelegate(qt.QItemDelegate):
+  """
+  A delegate that places a fully functioning QCheckBox in every
+  cell of the column to which it's applied
+  """
+
+  def __init__(self, parent):
+    qt.QItemDelegate.__init__(self, parent)
+
+  def createEditor(self, parent, option, index):
+    if not (qt.Qt.ItemIsEditable & index.flags()):
+      return None
+    customCheckbox = MyCheckBox(parent)
+    print "test", index
+    customCheckbox.cb.toggled.connect(self.stateChanged)
+    return customCheckbox
+
+  def setEditorData(self, editor, index):
+    """ Update the value of the editor """
+    editor.blockSignals(True)
+    editor.cb.setChecked(index.data())
+    editor.blockSignals(False)
+
+  def setModelData(self, editor, model, index):
+    """ Send data to the model """
+    model.setData(index, editor.cb.isChecked(), qt.Qt.EditRole)
+
+  def stateChanged(self):
+    print "sender", self.sender()
+    self.commitData.emit(self.sender())
+
 class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
   PLANNING_IMAGE_NAME = "Initial registration"
 
   COLUMN_NAME = 'Name'
-  COLUMN_DISTANCE = 'Distance[cm]'
+  COLUMN_Display = 'Display'
+  COLUMN_ProbeType = 'ProbeType'
   COLUMN_HOLE = 'Hole'
   COLUMN_DEPTH = 'Depth[cm]'
 
-  headers = [COLUMN_NAME, COLUMN_DISTANCE, COLUMN_HOLE, COLUMN_DEPTH]
+  headers = [COLUMN_NAME, COLUMN_Display, COLUMN_ProbeType, COLUMN_HOLE, COLUMN_DEPTH]
 
   @property
   def targetList(self):
@@ -69,6 +115,18 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self.observer = None
     self.session.addEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
 
+  def flags(self, index):
+    if (index.column() == self.getColunmNumForHeaderName(self.COLUMN_Display)):
+      return qt.Qt.ItemIsEnabled | qt.Qt.ItemIsEditable
+    else:
+      return qt.Qt.ItemIsEnabled
+
+  def getColunmNumForHeaderName(self, headerName):
+    for col, name in enumerate(self.headers):
+      if headerName == name:
+        return col
+    return -1
+
   def getOrCreateNewGuidanceComputation(self, targetList):
     if not targetList:
       return None
@@ -88,13 +146,8 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self._guidanceComputations = []
 
   def updateHoleAndDepth(self, caller=None, event=None):
-    self.dataChanged(self.index(0, 3), self.index(self.rowCount() - 1, 4))
+    self.dataChanged(self.index(0, self.getColunmNumForHeaderName(self.COLUMN_HOLE)), self.index(self.rowCount() - 1, self.getColunmNumForHeaderName(self.COLUMN_DEPTH)))
     self.invokeEvent(vtk.vtkCommand.ModifiedEvent)
-
-  def headerData(self, col, orientation, role):
-    if orientation == qt.Qt.Horizontal and role in [qt.Qt.DisplayRole, qt.Qt.ToolTipRole]:
-        return self.headers[col]
-    return None
 
   def rowCount(self):
     try:
@@ -119,17 +172,13 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
     if col == 0:
       return self.targetList.GetNthFiducialLabel(row)
-    if col == 1 and self.cursorPosition and self.computeCursorDistances and self.currentTargetIndex == row:
-      targetPosition = self.logic.getTargetPosition(self.targetList, row)
-      distance2D = self.logic.get3DDistance(targetPosition, self.cursorPosition)
-      distance2D = [str(round(distance2D[0]/10, 1)), str(round(distance2D[1]/10, 1)), str(round(distance2D[2]/10, 1))]
-      distance3D = self.logic.get3DEuclideanDistance(targetPosition, self.cursorPosition)
-      text = 'x= ' + distance2D[0] + '  y= ' + distance2D[1] + \
-             '  z= ' + distance2D[2] + '  (3D= ' + str(round(distance3D/10, 1)) + ')'
-      return text
-    elif col == 2 and self.session.zFrameRegistrationSuccessful:
-      return self.currentGuidanceComputation.getZFrameHole(row)
+    elif col == 1:
+      return self.session.displayForTargets.get(self.targetList.GetNthFiducialLabel(row))
+    elif col == 2:
+      return None
     elif col == 3 and self.session.zFrameRegistrationSuccessful:
+      return self.currentGuidanceComputation.getZFrameHole(row)
+    elif col == 4 and self.session.zFrameRegistrationSuccessful:
       return self.currentGuidanceComputation.getZFrameDepth(row)
     return ""
 
@@ -141,16 +190,16 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     col = index.column()
     outOfRangeText = "" if self.currentGuidanceComputation.getZFrameDepthInRange(row) else "Current depth: out of range"
     if self.coverProstateTargetList and not self.coverProstateTargetList is self.targetList:
-      if col in [2, 3]:
+      if col in [3, 4]:
         coverProstateGuidance = self.getOrCreateNewGuidanceComputation(self.coverProstateTargetList)
-        if col == 2:
+        if col == 3:
           coverProstateHole = coverProstateGuidance.getZFrameHole(row)
           if self.currentGuidanceComputation.getZFrameHole(row) == coverProstateHole:
             return qt.QColor(qt.Qt.green) if backgroundRequested else ""
           else:
             return qt.QColor(qt.Qt.red) if backgroundRequested else "{} hole: {}".format(self.PLANNING_IMAGE_NAME,
                                                                                          coverProstateHole)
-        elif col == 3:
+        elif col == 4:
           currentDepth = self.currentGuidanceComputation.getZFrameDepth(row, asString=False)
           coverProstateDepth = coverProstateGuidance.getZFrameDepth(row, asString=False)
           if abs(currentDepth - coverProstateDepth) <= max(1e-9 * max(abs(currentDepth), abs(coverProstateDepth)), 0.5):
@@ -161,7 +210,7 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
             if backgroundRequested:
               return qt.QColor(qt.Qt.red)
             return "%s depth: '%.1f' %s" % (self.PLANNING_IMAGE_NAME, coverProstateDepth, "\n"+outOfRangeText)
-    elif self.coverProstateTargetList is self.targetList and col == 3:
+    elif self.coverProstateTargetList is self.targetList and col == 4:
       if backgroundRequested and len(outOfRangeText):
         return qt.QColor(qt.Qt.red)
       elif len(outOfRangeText):
@@ -329,6 +378,10 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if not targets:
       self.targetTableModel.coverProstateTargetList = None
     self.targetTable.enabled = targets is not None
+    displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_Display)
+    self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self))
+    for row in range(0, self.targetTableModel.rowCount()):
+      self.targetTable.openPersistentEditor(self.targetTableModel.index(row, displayCol))
     if self.currentTargets:
       self.onTargetSelectionChanged()
 
@@ -344,7 +397,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.targetTable = qt.QTableView()
     self.targetTableModel = CustomTargetTableModel(self.logic)
     self.targetTable.setModel(self.targetTableModel)
-    self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
+    #self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
     self.setTargetTableSizeConstraints()
     self.targetTable.verticalHeader().hide()
     self.targetTable.minimumHeight = 150
@@ -354,9 +407,10 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
   def setTargetTableSizeConstraints(self):
     self.targetTable.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.targetTable.horizontalHeader().setResizeMode(0, qt.QHeaderView.Fixed)
-    self.targetTable.horizontalHeader().setResizeMode(1, qt.QHeaderView.Stretch)
-    self.targetTable.horizontalHeader().setResizeMode(2, qt.QHeaderView.ResizeToContents)
+    self.targetTable.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
+    self.targetTable.horizontalHeader().setResizeMode(2, qt.QHeaderView.Stretch)
     self.targetTable.horizontalHeader().setResizeMode(3, qt.QHeaderView.ResizeToContents)
+    self.targetTable.horizontalHeader().setResizeMode(4, qt.QHeaderView.ResizeToContents)
 
   def setupConnections(self):
     self.targetTable.connect('clicked(QModelIndex)', self.onTargetSelectionChanged)
