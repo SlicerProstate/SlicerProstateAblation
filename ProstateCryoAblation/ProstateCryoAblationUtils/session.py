@@ -1,5 +1,5 @@
 import os, logging
-import vtk, ctk, ast
+import vtk, ctk, ast, qt
 
 import slicer
 from sessionData import SessionData
@@ -269,6 +269,8 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.setupLoadedTransform()
     self.data.resumed = not self.data.completed
     if self.data.intraOpTargets:
+      for fiducialIndex in range(self.data.intraOpTargets.GetNumberOfFiducials()):
+        self.displayForTargets[fiducialIndex] = qt.Qt.Unchecked
       self.movingTargets = self.data.intraOpTargets
       self.steps[0].targetingPlugin.targetTablePlugin.currentTargets = self.data.intraOpTargets
       self.steps[0].targetingPlugin.targetTablePlugin.visible = True

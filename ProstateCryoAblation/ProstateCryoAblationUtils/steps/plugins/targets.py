@@ -9,6 +9,7 @@ from ...session import ProstateCryoAblationSession
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
+from functools import partial
 
 
 class MyCheckBox(qt.QWidget):
@@ -33,40 +34,50 @@ class CheckBoxDelegate(qt.QItemDelegate):
 
   def __init__(self, parent):
     qt.QItemDelegate.__init__(self, parent)
-
-  def createEditor(self, parent, option, index):
+    self.checkBoxDict = dict()
+    self.listCB = {}
+    
+  def createEditor(self, parentWidget, option, index):
     if not (qt.Qt.ItemIsEditable & index.flags()):
       return None
-    customCheckbox = MyCheckBox(parent)
-    print "test", index
-    customCheckbox.cb.toggled.connect(self.stateChanged)
+    rowNum = index.row()
+    checked = self.parent().session.displayForTargets.get(rowNum)
+    if checked is None:
+      return None
+    customCheckbox = MyCheckBox(parentWidget)
+    self.listCB[rowNum] = customCheckbox
+    self.checkBoxDict[customCheckbox] = index
+    customCheckbox.cb.setChecked(checked)
+    customCheckbox.cb.stateChanged.connect(lambda checked, rowNum=rowNum, parent=self.parent(): self.stateChanged(checked, self.listCB[rowNum], parent))
     return customCheckbox
-
+  """
   def setEditorData(self, editor, index):
-    """ Update the value of the editor """
+    # Update the value of the editor 
     editor.blockSignals(True)
     editor.cb.setChecked(index.data())
     editor.blockSignals(False)
 
   def setModelData(self, editor, model, index):
-    """ Send data to the model """
+    #Send data to the model
     model.setData(index, editor.cb.isChecked(), qt.Qt.EditRole)
-
-  def stateChanged(self):
-    print "sender", self.sender()
-    self.commitData.emit(self.sender())
+  """
+  def stateChanged(self, checked, checkBox, parent):
+    if self.checkBoxDict.get(checkBox):
+      targetRowNum = self.checkBoxDict[checkBox].row()
+      self.parent().session.displayForTargets[targetRowNum] = checked
+      self.parent().session.steps[2].updateAffectiveZone()
 
 class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
   PLANNING_IMAGE_NAME = "Initial registration"
 
   COLUMN_NAME = 'Name'
-  COLUMN_Display = 'Display'
-  COLUMN_ProbeType = 'ProbeType'
+  COLUMN_DISPLAY = 'Display'
+  COLUMN_PROBETYPE = 'ProbeType'
   COLUMN_HOLE = 'Hole'
   COLUMN_DEPTH = 'Depth[cm]'
 
-  headers = [COLUMN_NAME, COLUMN_Display, COLUMN_ProbeType, COLUMN_HOLE, COLUMN_DEPTH]
+  headers = [COLUMN_NAME, COLUMN_DISPLAY, COLUMN_PROBETYPE, COLUMN_HOLE, COLUMN_DEPTH]
 
   @property
   def targetList(self):
@@ -114,13 +125,14 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self.currentTargetIndex = -1
     self.observer = None
     self.session.addEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
-
+  
   def flags(self, index):
-    if (index.column() == self.getColunmNumForHeaderName(self.COLUMN_Display)):
+    if (index.column() == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY)):
       return qt.Qt.ItemIsEnabled | qt.Qt.ItemIsEditable
     else:
       return qt.Qt.ItemIsEnabled
-
+  
+  
   def getColunmNumForHeaderName(self, headerName):
     for col, name in enumerate(self.headers):
       if headerName == name:
@@ -172,8 +184,8 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
     if col == 0:
       return self.targetList.GetNthFiducialLabel(row)
-    elif col == 1:
-      return self.session.displayForTargets.get(self.targetList.GetNthFiducialLabel(row))
+    elif col == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY):
+      return None
     elif col == 2:
       return None
     elif col == 3 and self.session.zFrameRegistrationSuccessful:
@@ -378,8 +390,8 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if not targets:
       self.targetTableModel.coverProstateTargetList = None
     self.targetTable.enabled = targets is not None
-    displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_Display)
-    self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self))
+    displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_DISPLAY)
+    self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self.targetTableModel))
     for row in range(0, self.targetTableModel.rowCount()):
       self.targetTable.openPersistentEditor(self.targetTableModel.index(row, displayCol))
     if self.currentTargets:

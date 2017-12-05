@@ -179,6 +179,9 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked)
     ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
     ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)
+    targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
+    for targetIndex in range(targetingNode.GetNumberOfFiducials()):
+      self.session.displayForTargets[targetIndex] = qt.Qt.Checked if checked else qt.Qt.Unchecked
     self.updateAffectiveZone()
     if not self.segmentationEditorShow3DButton.isChecked() == checked:
       self.segmentationEditorShow3DButton.checked = checked
@@ -200,59 +203,60 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       offsetFromTip = 5.0 #unit mm
       coneHeight = 5.0
       for targetIndex in range(targetingNode.GetNumberOfFiducials()):
-        targetPosition = [0.0,0.0,0.0]
-        targetingNode.GetNthFiducialPosition(targetIndex, targetPosition)
-        (start, end, indexX, indexY, depth, inRange) = self.needlePathCaculator.computeNearestPath(targetPosition)
-        needleDirection = (numpy.array(end) - numpy.array(start))/numpy.linalg.norm(numpy.array(end)-numpy.array(start))
-        cone = vtk.vtkConeSource()
-        cone.SetRadius(1.5)
-        cone.SetResolution(6)
-        cone.SetHeight(coneHeight)
-        cone.CappingOff()
-        cone.Update()
-        transform = vtk.vtkTransform()
-        transform.RotateY(-90)
-        transform.RotateX(30)
-        transform.Translate(-coneHeight / 2, 0.0, 0.0)
-        tFilter0 = vtk.vtkTransformPolyDataFilter()
-        tFilter0.SetInputData(cone.GetOutput())
-        tFilter0.SetTransform(transform)
-        tFilter0.Update()
-        translatePart = start+depth*needleDirection
-        for index, posElement in enumerate(translatePart):
-          zFrameTransformMatrix.SetElement(index, 3, posElement)
-        transform.SetMatrix(zFrameTransformMatrix)
-        tFilter1 = vtk.vtkTransformPolyDataFilter()
-        tFilter1.SetTransform(transform)
-        tFilter1.SetInputData(tFilter0.GetOutput())
-        tFilter1.Update()
-        needleModelAppend.AddInputData(tFilter1.GetOutput())
-        needleModelAppend.Update()
-        pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(start, start+(depth-coneHeight)*needleDirection, radius=1.5, numSides=6)
-        needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
-        needleModelAppend.Update()
-        #End of needle model
-        #--------------
-        #--------------
-        #Begin of affectedBallArea
-        affectedBallArea = vtk.vtkParametricEllipsoid()
-        affectedBallArea.SetXRadius(float(affectedBallAreaRadius[0]))
-        affectedBallArea.SetYRadius(float(affectedBallAreaRadius[1]))
-        affectedBallArea.SetZRadius(float(affectedBallAreaRadius[2]))
-        affectedBallAreaSource = vtk.vtkParametricFunctionSource()
-        affectedBallAreaSource.SetParametricFunction(affectedBallArea)
-        affectedBallAreaSource.SetScalarModeToV()
-        affectedBallAreaSource.Update()
-        translatePart = start+(depth+offsetFromTip-float(affectedBallAreaRadius[2]))*needleDirection
-        for index, posElement in enumerate(translatePart):
-          zFrameTransformMatrix.SetElement(index, 3, posElement)
-        transform.SetMatrix(zFrameTransformMatrix)
-        tFilter2 = vtk.vtkTransformPolyDataFilter()
-        tFilter2.SetTransform(transform)
-        tFilter2.SetInputData(affectedBallAreaSource.GetOutput())
-        tFilter2.Update()
-        affectedBallAreaAppend.AddInputData(tFilter2.GetOutput())
-        affectedBallAreaAppend.Update()
+        if self.session.displayForTargets.get(targetIndex) == qt.Qt.Checked:
+          targetPosition = [0.0,0.0,0.0]
+          targetingNode.GetNthFiducialPosition(targetIndex, targetPosition)
+          (start, end, indexX, indexY, depth, inRange) = self.needlePathCaculator.computeNearestPath(targetPosition)
+          needleDirection = (numpy.array(end) - numpy.array(start))/numpy.linalg.norm(numpy.array(end)-numpy.array(start))
+          cone = vtk.vtkConeSource()
+          cone.SetRadius(1.5)
+          cone.SetResolution(6)
+          cone.SetHeight(coneHeight)
+          cone.CappingOff()
+          cone.Update()
+          transform = vtk.vtkTransform()
+          transform.RotateY(-90)
+          transform.RotateX(30)
+          transform.Translate(-coneHeight / 2, 0.0, 0.0)
+          tFilter0 = vtk.vtkTransformPolyDataFilter()
+          tFilter0.SetInputData(cone.GetOutput())
+          tFilter0.SetTransform(transform)
+          tFilter0.Update()
+          translatePart = start+depth*needleDirection
+          for index, posElement in enumerate(translatePart):
+            zFrameTransformMatrix.SetElement(index, 3, posElement)
+          transform.SetMatrix(zFrameTransformMatrix)
+          tFilter1 = vtk.vtkTransformPolyDataFilter()
+          tFilter1.SetTransform(transform)
+          tFilter1.SetInputData(tFilter0.GetOutput())
+          tFilter1.Update()
+          needleModelAppend.AddInputData(tFilter1.GetOutput())
+          needleModelAppend.Update()
+          pathTubeFilter = ModuleLogicMixin.createVTKTubeFilter(start, start+(depth-coneHeight)*needleDirection, radius=1.5, numSides=6)
+          needleModelAppend.AddInputData(pathTubeFilter.GetOutput())
+          needleModelAppend.Update()
+          #End of needle model
+          #--------------
+          #--------------
+          #Begin of affectedBallArea
+          affectedBallArea = vtk.vtkParametricEllipsoid()
+          affectedBallArea.SetXRadius(float(affectedBallAreaRadius[0]))
+          affectedBallArea.SetYRadius(float(affectedBallAreaRadius[1]))
+          affectedBallArea.SetZRadius(float(affectedBallAreaRadius[2]))
+          affectedBallAreaSource = vtk.vtkParametricFunctionSource()
+          affectedBallAreaSource.SetParametricFunction(affectedBallArea)
+          affectedBallAreaSource.SetScalarModeToV()
+          affectedBallAreaSource.Update()
+          translatePart = start+(depth+offsetFromTip-float(affectedBallAreaRadius[2]))*needleDirection
+          for index, posElement in enumerate(translatePart):
+            zFrameTransformMatrix.SetElement(index, 3, posElement)
+          transform.SetMatrix(zFrameTransformMatrix)
+          tFilter2 = vtk.vtkTransformPolyDataFilter()
+          tFilter2.SetTransform(transform)
+          tFilter2.SetInputData(affectedBallAreaSource.GetOutput())
+          tFilter2.Update()
+          affectedBallAreaAppend.AddInputData(tFilter2.GetOutput())
+          affectedBallAreaAppend.Update()
 
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
