@@ -1,10 +1,6 @@
-import vtk, qt, logging
+import vtk, qt, logging, slicer, os
 from SlicerDevelopmentToolboxUtils.decorators import beforeRunProcessEvents, onModuleSelected
-from SlicerDevelopmentToolboxUtils.module.base import WidgetBase
-from SlicerDevelopmentToolboxUtils.module.logic import SessionBasedLogicBase
-
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
-#from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
 from SlicerDevelopmentToolboxUtils.icons import Icons
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, GeneralModuleMixin
 
@@ -15,7 +11,7 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
   LayoutClass = qt.QGridLayout
   AvailableLayoutsChangedEvent = vtk.vtkCommand.UserEvent + 4233
   ActivatedEvent = vtk.vtkCommand.UserEvent + 150
-  
+  DeactivatedEvent = vtk.vtkCommand.UserEvent + 151
   @property
   def active(self):
     self._activated = getattr(self, "_activated", False)
@@ -35,19 +31,21 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
   
   def __init__(self, session):
     super(ProstateCryoAblationWidgetBase, self).__init__()
+    self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
+    self._plugins = []
     if self.LogicClass:
       self.logic = self.LogicClass(session)
     self.setLayout(self.LayoutClass())  
     self.session = session
-    self._plugins = []
-    
-  def setup(self):
+    self.setupIcons()
+    self.setup()
     self.setupSliceWidgets()
     self.addSessionObservers()
     self.setupConnections()
-    self.setupIcons()
-    self.setupAdditionalViewSettingButtons()
-  
+
+  def setup(self):
+    pass
+
   def setupIcons(self):
     pass
   
@@ -219,6 +217,7 @@ class ProstateCryoAblationLogicBase(ModuleLogicMixin):
   
   def __init__(self, session):
     super(ProstateCryoAblationLogicBase, self).__init__()
+    self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self.session = session
 
 class ProstateCryoAblationPlugin(ProstateCryoAblationWidgetBase):

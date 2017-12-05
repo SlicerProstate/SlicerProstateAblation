@@ -5,8 +5,6 @@ import slicer
 import vtk
 from ProstateCryoAblationUtils.steps.plugins.targets import ZFrameGuidanceComputation
 from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationLogicBase,ProstateCryoAblationStep
-from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
-import numpy
 
 class ProstateCryoAblationTargetingStepLogic(ProstateCryoAblationLogicBase):
   
@@ -30,7 +28,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self._NeedleType = type
 
   def __init__(self, prostateCryoAblationSession):
-    self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     super(ProstateCryoAblationTargetingStep, self).__init__(prostateCryoAblationSession)
     self._NeedleType = self.ICESEED
     self.resetAndInitialize()
@@ -41,7 +38,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def setup(self):
     super(ProstateCryoAblationTargetingStep, self).setup()
     self.setupTargetingPlugin()
-    self.addNavigationButtons()
     self.layout().addStretch(1)
 
   def setupTargetingPlugin(self):
@@ -67,15 +63,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     super(ProstateCryoAblationTargetingStep, self).setupConnections()
     self.backButton.clicked.connect(self.onBackButtonClicked)
     self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
-
-  def GetIceBallRadius(self):
-    if str(self.getSetting("NeedleType")).lower()== "icerod":
-      return numpy.array(self.getSetting("NeedleRadius_ICEROD").split())
-    elif str(self.getSetting("NeedleType")).lower()== "iceseed":
-      return numpy.array(self.getSetting("NeedleRadius_ICESEED").split())
-    else:
-      needleRadius = numpy.array([0,0,0])
-      return needleRadius
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onInitiateTargeting(self, caller, event, callData):
@@ -149,14 +136,14 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
 
 
   def onTargetingStarted(self, caller, event):
-    if self.targetingPlugin.targetTablePlugin.currentTargets:
-      self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(False)
+    if self.session.targetingPlugin.targetTablePlugin.currentTargets:
+      self.session.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(False)
     self.backButton.enabled = False
     pass
 
   def onTargetingFinished(self, caller, event):
-    if self.targetingPlugin.targetTablePlugin.currentTargets:
-      self.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(True)
+    if self.session.targetingPlugin.targetTablePlugin.currentTargets:
+      self.session.targetingPlugin.targetTablePlugin.currentTargets.SetLocked(True)
     self.finishStepButton.enabled = True
     self.backButton.enabled = True
     pass

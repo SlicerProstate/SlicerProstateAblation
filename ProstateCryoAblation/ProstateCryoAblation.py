@@ -75,8 +75,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     ScriptedLoadableModuleWidget.setup(self)
 
     for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep, ProstateCryoAblationTargetingStep, ProstateCryoAblationGuidanceStep]:
-      registeredStep = step(self.session)   
-      #registeredStep.setup()
+      registeredStep = step(self.session)
       self.session.registerStep(registeredStep)
     
     self.customStatusProgressBar = CustomStatusProgressbar()
@@ -85,8 +84,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.setupViewSettingGroupBox()
     self.setupTabBarNavigation()
     self.setupSessionObservers()
-    
-    #self.layout.addStretch()
 
   def setupIcons(self):
     self.settingsIcon = Icons.settings
@@ -114,7 +111,6 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.sideBySideLayoutButton = SideBySideLayoutButton()
     self.fourUpLayoutButton = FourUpLayoutButton()
     self.layoutButtons = [self.redOnlyLayoutButton, self.sideBySideLayoutButton, self.fourUpLayoutButton]
-    #self.crosshairButton = CrosshairButton()
 
     self.screenShotButton = ScreenShotButton()
     self.screenShotButton.caseResultDir = ""
@@ -204,7 +200,6 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
   def _createTabs(self):
     for step in self.session.steps:
       logging.debug("Adding tab for %s step" % step.NAME)
-      step.setup()
       self.addTab(step, step.NAME)
       step.addEventObserver(step.ActivatedEvent, self.onStepActivated)
       step.addEventObserver(self.AvailableLayoutsChangedEvent, self.onStepAvailableLayoutChanged)

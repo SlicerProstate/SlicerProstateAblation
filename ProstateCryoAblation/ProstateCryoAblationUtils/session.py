@@ -1,6 +1,6 @@
 import os, logging
 import vtk, ctk, ast, qt
-
+import numpy
 import slicer
 from sessionData import SessionData
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
@@ -167,7 +167,12 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.seriesTypeManager = SeriesTypeManager()
     self.seriesTypeManager.addEventObserver(self.seriesTypeManager.SeriesTypeManuallyAssignedEvent,
                                             lambda caller, event: self.invokeEvent(self.SeriesTypeManuallyAssignedEvent))
+    self.targetingPlugin = ProstateCryoAblationTargetingPlugin(self)
+    self.targetingPlugin.setup()
+    self.needlePathCaculator = ZFrameGuidanceComputation(self)
+    self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.resetAndInitializeMembers()
+    self.resetAndInitializedTargetsAndSegments()
   
   def resetAndInitializeMembers(self):
     self.seriesTypeManager.clear()
@@ -183,12 +188,11 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.retryMode = False
     self.lastSelectedModelIndex = None
     self.previousStep = None
-    self.targetingPlugin = ProstateCryoAblationTargetingPlugin(self)
+
+  def resetAndInitializedTargetsAndSegments(self):
     self.displayForTargets = dict()
-    self.needlePathCaculator = ZFrameGuidanceComputation(self)
     self.needleModelNode = None
     self.affectedAreaModelNode = None
-    self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.segmentationEditorNoneButton = None
     self.segmentationEditorShow3DButton = None
     self.segmentationEditorMaskOverWriteCombox = None
@@ -205,6 +209,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def clearData(self):
     self.resetAndInitializeMembers()
+    self.resetAndInitializedTargetsAndSegments()
 
   def onMrmlSceneCleared(self, caller, event):
     self.initializeColorNodes()
@@ -240,6 +245,7 @@ class ProstateCryoAblationSession(StepBasedSession):
   def createNewCase(self, destination):
     self.newCaseCreated = True
     self.resetAndInitializeMembers()
+    self.resetAndInitializedTargetsAndSegments()
     self.directory = destination
     self.createDirectory(self.intraopDICOMDirectory)
     self.createDirectory(self.outputDirectory)
@@ -257,6 +263,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       message = "Case data has been saved successfully." if success else \
         "The following data failed to saved:\n %s" % failedFileNames
     self.resetAndInitializeMembers()
+    self.resetAndInitializedTargetsAndSegments()
     self.invokeEvent(self.CloseCaseEvent, str(message))
 
   def save(self):
@@ -276,6 +283,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       slicer.app.layoutManager().blockSignals(True)
       self._loading = True
       self.data.load(filename)
+      #self.resetAndInitializedTargetsAndSegments()
       self.postProcessLoadedSessionData()
       self._loading = False
       slicer.app.layoutManager().blockSignals(False)
@@ -322,7 +330,6 @@ class ProstateCryoAblationSession(StepBasedSession):
                  
   def setupNeedleAndSegModelNode(self):
     self.clearOldNodesByName(self.NEEDLE_NAME)
-    self.targetingPlugin.setup()
     self.setupFiducialWidget()
     self.setupSegmentationWidget()
     if self.needleModelNode is None:
@@ -723,6 +730,15 @@ class ProstateCryoAblationSession(StepBasedSession):
   def isLoading(self):
     self._loading = getattr(self, "_loading", False)
     return self._loading
+
+  def GetIceBallRadius(self):
+    if str(self.getSetting("NeedleType")).lower()== "icerod":
+      return numpy.array(self.getSetting("NeedleRadius_ICEROD").split())
+    elif str(self.getSetting("NeedleType")).lower()== "iceseed":
+      return numpy.array(self.getSetting("NeedleRadius_ICESEED").split())
+    else:
+      needleRadius = numpy.array([0,0,0])
+      return needleRadius
 
   def takeActionForCurrentSeries(self):
     event = None

@@ -31,10 +31,11 @@ class CheckBoxDelegate(qt.QItemDelegate):
   cell of the column to which it's applied
   """
 
-  def __init__(self, parent):
+  def __init__(self, parent, prostateCryoAblationSession):
     qt.QItemDelegate.__init__(self, parent)
     self.checkBoxDict = dict()
     self.listCB = {}
+    self.session = prostateCryoAblationSession
     
   def createEditor(self, parentWidget, option, index):
     if not (qt.Qt.ItemIsEditable & index.flags()):
@@ -64,7 +65,7 @@ class CheckBoxDelegate(qt.QItemDelegate):
     if self.checkBoxDict.get(checkBox):
       targetRowNum = self.checkBoxDict[checkBox].row()
       self.session.displayForTargets[targetRowNum] = checked
-      self.session.steps[2].updateAffectiveZone()
+      self.session.updateAffectiveZone()
 
 class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
@@ -91,7 +92,6 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     if self.currentGuidanceComputation:
       self.observer = self.currentGuidanceComputation.addEventObserver(vtk.vtkCommand.ModifiedEvent,
                                                                        self.updateHoleAndDepth)
-    self.reset()
 
   @property
   def coverProstateTargetList(self):
@@ -347,7 +347,7 @@ class ProstateCryoAblationTargetTableLogic(ProstateCryoAblationLogicBase):
 class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
 
   NAME = "TargetTable"
-  #LogicClass = ProstateCryoAblationTargetTableLogic
+  LogicClass = ProstateCryoAblationTargetTableLogic
 
   TargetPosUpdatedEvent = vtk.vtkCommand.UserEvent + 337
 
@@ -388,8 +388,9 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if not targets:
       self.targetTableModel.coverProstateTargetList = None
     self.targetTable.enabled = targets is not None
+
     displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_DISPLAY)
-    self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self.targetTableModel))
+    self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self.targetTableModel, self.session))
     for row in range(0, self.targetTableModel.rowCount()):
       self.targetTable.openPersistentEditor(self.targetTableModel.index(row, displayCol))
     if self.currentTargets:
@@ -397,14 +398,6 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
 
   def __init__(self, prostateCryoAblationSession, **kwargs):
     super(ProstateCryoAblationTargetTablePlugin, self).__init__(prostateCryoAblationSession)
-    self.targetTable = qt.QTableView()
-    self.targetTableModel = CustomTargetTableModel(self.session)
-    self.targetTable.setModel(self.targetTableModel)
-    #self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
-    self.setTargetTableSizeConstraints()
-    self.targetTable.verticalHeader().hide()
-    self.targetTable.minimumHeight = 150
-    self.targetTable.setStyleSheet("QTableView::item:selected{background-color: #ff7f7f; color: black};")
     self.movingEnabled = kwargs.pop("movingEnabled", False)
     self.keyPressEventObservers = {}
     self.keyReleaseEventObservers = {}
@@ -412,6 +405,14 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
 
   def setup(self):
     super(ProstateCryoAblationTargetTablePlugin, self).setup()
+    self.targetTable = qt.QTableView()
+    self.targetTableModel = CustomTargetTableModel(self.session)
+    self.targetTable.setModel(self.targetTableModel)
+    # self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
+    self.setTargetTableSizeConstraints()
+    self.targetTable.verticalHeader().hide()
+    self.targetTable.minimumHeight = 150
+    self.targetTable.setStyleSheet("QTableView::item:selected{background-color: #ff7f7f; color: black};")
     self.layout().addWidget(self.targetTable)
 
   def setTargetTableSizeConstraints(self):

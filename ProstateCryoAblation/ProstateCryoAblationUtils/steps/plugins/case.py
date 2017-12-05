@@ -58,7 +58,7 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
     self.closeIcon = Icons.exit
 
   def setup(self):
-    super(ProstateCryoAblationCaseManagerPlugin, self).setup()
+    self.setupIcons()
     iconSize = qt.QSize(36, 36)
     self.createNewCaseButton = self.createButton("", icon=self.newIcon, iconSize=iconSize, toolTip="Start a new case")
     self.openCaseButton = self.createButton("", icon=self.openIcon, iconSize=iconSize, toolTip="Open case")
@@ -84,6 +84,7 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
                                                           self.closeCaseButton]))
     self.caseGroupBoxLayout.addWidget(self.caseDirectoryInformationArea)
     self.layout().addWidget(self.caseGroupBox)
+    super(ProstateCryoAblationCaseManagerPlugin, self).setup()
     
   def setupCaseWatchBox(self):
     watchBoxInformation = [WatchBoxAttribute('CurrentCaseDirectory', 'Directory'),
