@@ -75,14 +75,17 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     ScriptedLoadableModuleWidget.setup(self)
 
     for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep, ProstateCryoAblationTargetingStep, ProstateCryoAblationGuidanceStep]:
-      self.session.registerStep(step())
-
+      registeredStep = step(self.session)   
+      #registeredStep.setup()
+      self.session.registerStep(registeredStep)
+    
     self.customStatusProgressBar = CustomStatusProgressbar()
     self.setupIcons()
     self.setupPatientWatchBox()
     self.setupViewSettingGroupBox()
     self.setupTabBarNavigation()
     self.setupSessionObservers()
+    
     #self.layout.addStretch()
 
   def setupIcons(self):
@@ -116,15 +119,23 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     self.screenShotButton = ScreenShotButton()
     self.screenShotButton.caseResultDir = ""
     self.settingsButton = ModuleSettingsButton(self.moduleName)
+    self.affectiveZoneIcon = self.createIcon('icon-needle.png')
+    self.showAffectiveZoneButton = self.createButton("", icon=self.affectiveZoneIcon, iconSize=iconSize, checkable=True, toolTip="Display the effective ablation zone")
+    self.showAffectiveZoneButton.connect('toggled(bool)', self.session.onShowAffectiveZoneToggled)
     viewSettingButtons = [self.redOnlyLayoutButton, self.fourUpLayoutButton,
-                          self.settingsButton, self.screenShotButton]
+                          self.settingsButton, self.screenShotButton, self.showAffectiveZoneButton]
     
     for step in self.session.steps:
       viewSettingButtons += step.viewSettingButtons
       
     self.layout.addWidget(self.createHLayout(viewSettingButtons))
-
+    self.setupAdditionalViewSettingButtons()
     self.resetViewSettingButtons()
+  
+  def setupAdditionalViewSettingButtons(self):
+    for step in self.session.steps:
+      step.setupIcons()
+      step.setupAdditionalViewSettingButtons()
   
   def resetViewSettingButtons(self):
     for step in self.session.steps:
@@ -132,7 +143,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     #self.crosshairButton.checked = False
 
   def setupTabBarNavigation(self):
-    self.tabWidget = ProstateCryoAblationTabWidget()
+    self.tabWidget = ProstateCryoAblationTabWidget(self.session)
     self.tabWidget.addEventObserver(self.tabWidget.AvailableLayoutsChangedEvent, self.onAvailableLayoutsChanged)
     self.layout.addWidget(self.tabWidget)
     self.tabWidget.hideTabs()
@@ -180,12 +191,12 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
 
   AvailableLayoutsChangedEvent = ProstateCryoAblationStep.AvailableLayoutsChangedEvent
 
-  def __init__(self):
+  def __init__(self, prostateCryoAblationSession):
     super(ProstateCryoAblationTabWidget, self).__init__()
-    self.session = ProstateCryoAblationSession()
+    self.session = prostateCryoAblationSession
     self._createTabs()
     self.currentChanged.connect(self.onCurrentTabChanged)
-    self.onCurrentTabChanged(0)
+    #self.onCurrentTabChanged(0)
 
   def hideTabs(self):
     self.tabBar().hide()
@@ -193,6 +204,7 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
   def _createTabs(self):
     for step in self.session.steps:
       logging.debug("Adding tab for %s step" % step.NAME)
+      step.setup()
       self.addTab(step, step.NAME)
       step.addEventObserver(step.ActivatedEvent, self.onStepActivated)
       step.addEventObserver(self.AvailableLayoutsChangedEvent, self.onStepAvailableLayoutChanged)

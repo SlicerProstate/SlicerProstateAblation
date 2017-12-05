@@ -1,27 +1,56 @@
-import vtk, qt
+import vtk, qt, logging
 from SlicerDevelopmentToolboxUtils.decorators import beforeRunProcessEvents, onModuleSelected
 from SlicerDevelopmentToolboxUtils.module.base import WidgetBase
 from SlicerDevelopmentToolboxUtils.module.logic import SessionBasedLogicBase
 
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
-from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
+#from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
 from SlicerDevelopmentToolboxUtils.icons import Icons
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, GeneralModuleMixin
 
-class ProstateCryoAblationWidgetBase(WidgetBase):
+class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
 
   MODULE_NAME = constants.MODULE_NAME
-
-  SessionClass = ProstateCryoAblationSession
-
+  LogicClass = None
+  LayoutClass = qt.QGridLayout
   AvailableLayoutsChangedEvent = vtk.vtkCommand.UserEvent + 4233
+  ActivatedEvent = vtk.vtkCommand.UserEvent + 150
+  
+  @property
+  def active(self):
+    self._activated = getattr(self, "_activated", False)
+    return self._activated
 
-  def __init__(self):
+  @active.setter
+  def active(self, value):
+    if self.active == value:
+      return
+    self._activated = value
+    logging.debug("%s %s" % ("activated" if self.active else "deactivate", self.NAME))
+    self.invokeEvent(self.ActivatedEvent if self.active else self.DeactivatedEvent)
+    if self.active:
+      self.onActivation()
+    else:
+      self.onDeactivation()
+  
+  def __init__(self, session):
     super(ProstateCryoAblationWidgetBase, self).__init__()
-
+    if self.LogicClass:
+      self.logic = self.LogicClass(session)
+    self.setLayout(self.LayoutClass())  
+    self.session = session
+    self._plugins = []
+    
   def setup(self):
     self.setupSliceWidgets()
+    self.addSessionObservers()
+    self.setupConnections()
+    self.setupIcons()
     self.setupAdditionalViewSettingButtons()
-
+  
+  def setupIcons(self):
+    pass
+  
   def setupSliceWidgets(self):
     self.createSliceWidgetClassMembers("Red")
     self.createSliceWidgetClassMembers("Yellow")
@@ -31,23 +60,59 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
     pass
 
   def addSessionObservers(self):
-    super(ProstateCryoAblationWidgetBase, self).addSessionObservers()
+    self.session.addEventObserver(self.session.NewCaseStartedEvent, self.onNewCaseStarted)
+    self.session.addEventObserver(self.session.CaseOpenedEvent, self.onCaseOpened)
+    self.session.addEventObserver(self.session.CloseCaseEvent, self.onCaseClosed)
     self.session.addEventObserver(self.session.NewImageSeriesReceivedEvent, self.onNewImageSeriesReceived)
     self.session.addEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
 
   def removeSessionEventObservers(self):
-    super(ProstateCryoAblationWidgetBase, self).removeSessionEventObservers()
+    self.session.removeEventObserver(self.session.NewCaseStartedEvent, self.onNewCaseStarted)
+    self.session.removeEventObserver(self.session.CaseOpenedEvent, self.onCaseOpened)
+    self.session.removeEventObserver(self.session.CloseCaseEvent, self.onCaseClosed)
     self.session.removeEventObserver(self.session.NewImageSeriesReceivedEvent, self.onNewImageSeriesReceived)
     self.session.removeEventObserver(self.session.CurrentSeriesChangedEvent, self.onCurrentSeriesChanged)
   
+  def getSetting(self, setting, moduleName=None, default=None):
+    return GeneralModuleMixin.getSetting(self, setting, moduleName=moduleName if moduleName else self.MODULE_NAME,
+                                         default=default)
+
+  def setSetting(self, setting, value, moduleName=None):
+    return GeneralModuleMixin.setSetting(self, setting, value,
+                                         moduleName=moduleName if moduleName else self.MODULE_NAME)
+  
+  def onNewCaseStarted(self, caller, event):
+    pass
+
+  def onCaseOpened(self, caller, event):
+    pass
+
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def onCaseClosed(self, caller, event, callData):
+    pass
+  
+  def setupConnections(self):
+    pass
+  
   def onActivation(self):
     self.layoutManager.layoutChanged.connect(self.onLayoutChanged)
-    super(ProstateCryoAblationWidgetBase, self).onActivation()
+    self.activePlugin()
 
   def onDeactivation(self):
     self.layoutManager.layoutChanged.disconnect(self.onLayoutChanged)
-    super(ProstateCryoAblationWidgetBase, self).onDeactivation()
+    self.deactivePlugin()
 
+  def activePlugin(self):
+    for plugin in self._plugins:
+      plugin.active = True
+      
+  def deactivePlugin(self):
+    for plugin in self._plugins:
+      plugin.active = False
+  
+  def addPlugin(self, plugin):
+    self._plugins.append(plugin)    
+          
   @onModuleSelected(constants.MODULE_NAME)
   def onLayoutChanged(self, layout=None):
     pass
@@ -58,7 +123,6 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
     self.invokeEvent(self.AvailableLayoutsChangedEvent, str(layouts))
 
   def addPlugin(self, plugin):
-    super(ProstateCryoAblationWidgetBase, self).addPlugin(plugin)
     plugin.addEventObserver(self.AvailableLayoutsChangedEvent, self.onPluginAvailableLayoutChanged)
 
   @vtk.calldata_type(vtk.VTK_STRING)
@@ -130,7 +194,7 @@ class ProstateCryoAblationWidgetBase(WidgetBase):
 
 class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
 
-  def __init__(self):
+  def __init__(self, prostateCryoAblationSession):
     self.viewSettingButtons = []
     iconSize = qt.QSize(36, 36)
     self.finishStepIcon = Icons.start
@@ -140,7 +204,7 @@ class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
     self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
                                               toolTip="Confirm the targeting")
     self.parameterNode.SetAttribute("Name", self.NAME)
-    super(ProstateCryoAblationStep, self).__init__()
+    super(ProstateCryoAblationStep, self).__init__(prostateCryoAblationSession)
 
   def addNavigationButtons(self):
     self.finishStepButton.setFixedHeight(45)
@@ -149,17 +213,16 @@ class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
   def resetAndInitialize(self):
     pass
 
-class ProstateCryoAblationLogicBase(SessionBasedLogicBase):
+class ProstateCryoAblationLogicBase(ModuleLogicMixin):
 
   MODULE_NAME = constants.MODULE_NAME
-  SessionClass =ProstateCryoAblationSession
-
-  def __init__(self):
+  
+  def __init__(self, session):
     super(ProstateCryoAblationLogicBase, self).__init__()
-
+    self.session = session
 
 class ProstateCryoAblationPlugin(ProstateCryoAblationWidgetBase):
 
-  def __init__(self):
-    super(ProstateCryoAblationPlugin, self).__init__()
+  def __init__(self, session):
+    super(ProstateCryoAblationPlugin, self).__init__(session)
     

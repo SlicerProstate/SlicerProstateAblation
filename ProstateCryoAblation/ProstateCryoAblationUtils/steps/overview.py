@@ -11,7 +11,6 @@ from SlicerDevelopmentToolboxUtils.decorators import logmethod, onReturnProcessE
 from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar
 from base import ProstateCryoAblationLogicBase, ProstateCryoAblationStep
 from ProstateCryoAblationUtils.steps.plugins.case import ProstateCryoAblationCaseManagerPlugin
-from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
 from ProstateCryoAblationUtils.steps.plugins.training import ProstateCryoAblationTrainingPlugin
 from ..constants import ProstateCryoAblationConstants as constants
 from ..helpers import SeriesTypeManager
@@ -19,18 +18,19 @@ from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationOverViewStepLogic(ProstateCryoAblationLogicBase):
 
-  def __init__(self):
-    super(ProstateCryoAblationOverViewStepLogic, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationOverViewStepLogic, self).__init__(prostateCryoAblationSession)
 
 class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   NAME = "Overview"
   LogicClass = ProstateCryoAblationOverViewStepLogic
   LayoutClass = qt.QVBoxLayout
-  def __init__(self):
-    super(ProstateCryoAblationOverviewStep, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationOverviewStep, self).__init__(prostateCryoAblationSession)
+    self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self.notifyUserAboutNewData = True
-
+    
   def cleanup(self):
     self._seriesModel.clear()
     self.trackTargetsButton.enabled = False
@@ -43,26 +43,24 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.skipIcon = Icons.skip #self.createIcon('icon-skip.png')
 
   def setup(self):
-    super(ProstateCryoAblationOverviewStep, self).setup()
     iconSize = qt.QSize(24, 24)
-    self.caseManagerPlugin = ProstateCryoAblationCaseManagerPlugin()
-    self.trainingPlugin = ProstateCryoAblationTrainingPlugin()
+    self.caseManagerPlugin = ProstateCryoAblationCaseManagerPlugin(self.session)
+    self.trainingPlugin = ProstateCryoAblationTrainingPlugin(self.session)
 
     self.trackTargetsButton = self.createButton("", icon=self.trackIcon, iconSize=iconSize, toolTip="Track targets",
                                                 enabled=False)
     self.skipIntraopSeriesButton = self.createButton("", icon=self.skipIcon, iconSize=iconSize,
                                                      toolTip="Skip selected series", enabled=False)
     self.setupIntraopSeriesSelector()
-
-    self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
-    self.addPlugin(self.targetingPlugin)
-    self.targetingPlugin.targetTablePlugin.currentTargets = self.session.movingTargets
     self.layout().addWidget(self.caseManagerPlugin)
+    self.addPlugin(self.caseManagerPlugin)
     self.layout().addWidget(self.trainingPlugin)
-    self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
-    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector,
-                                                self.trackTargetsButton, self.skipIntraopSeriesButton]))
+    self.addPlugin(self.trainingPlugin)
+    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
+    self.addPlugin(self.session.targetingPlugin)
+    #self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.skipIntraopSeriesButton]))
     self.layout().addStretch(1)
+    super(ProstateCryoAblationOverviewStep, self).setup()
 
   def setupIntraopSeriesSelector(self):
     self.intraopSeriesSelector = qt.QComboBox()

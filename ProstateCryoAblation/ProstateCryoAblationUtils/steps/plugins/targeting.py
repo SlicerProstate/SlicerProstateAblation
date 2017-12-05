@@ -15,12 +15,11 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
   TargetingStartedEvent = vtk.vtkCommand.UserEvent + 335
   TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
 
-  def __init__(self):
-    super(ProstateCryoAblationTargetingPlugin, self).__init__()
-
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationTargetingPlugin, self).__init__(prostateCryoAblationSession)
+    
   def setup(self):
-    super(ProstateCryoAblationTargetingPlugin, self).setup()
-    self.targetTablePlugin = ProstateCryoAblationTargetTablePlugin(movingEnabled=True)
+    self.targetTablePlugin = ProstateCryoAblationTargetTablePlugin(self.session, movingEnabled=True)
     self.addPlugin(self.targetTablePlugin)
 
     self.targetingGroupBox = qt.QGroupBox("Target Placement")

@@ -69,8 +69,10 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   def zFrameSuccessfulLoaded(self):
     return self.zFrameModelNode
 
-  def __init__(self):
-    super(ProstateCryoAblationZFrameRegistrationStepLogic, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationZFrameRegistrationStepLogic, self).__init__(prostateCryoAblationSession)
+    self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
+    self.resourcesPath = os.path.join(self.modulePath, "Resources")
     self.setupSliceWidgets()
     self.resetAndInitializeData()
 
@@ -276,10 +278,10 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
   LogicClass = ProstateCryoAblationZFrameRegistrationStepLogic
   LayoutClass = qt.QVBoxLayout
 
-  def __init__(self):
+  def __init__(self, prostateCryoAblationSession):
+    self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self.annotationLogic = slicer.modules.annotations.logic()
     self.zFrameRegistrationClass = getattr(sys.modules[__name__], self.getSetting("ZFrame_Registration_Class_Name"))
-
     self.roiObserverTag = None
     self.coverTemplateROI = None
     self.zFrameCroppedVolume = None
@@ -289,9 +291,9 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.zFrameClickObserver = None
     self.zFrameInstructionAnnotation = None
 
-    super(ProstateCryoAblationZFrameRegistrationStep, self).__init__()
+    super(ProstateCryoAblationZFrameRegistrationStep, self).__init__(prostateCryoAblationSession)
     self.logic.templateVolume = None
-
+    
   def setupIcons(self):
     self.zFrameIcon = self.createIcon('icon-zframe.png')
     self.needleIcon = self.createIcon('icon-needle.png')
@@ -301,7 +303,6 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.retryIcon = Icons.retry
 
   def setup(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).setup()
     self.setupManualIndexesGroupBox()
     self.setupActionButtons()
 
@@ -310,6 +311,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
                                                 self.approveZFrameRegistrationButton]))
     self.layout().addWidget(self.createHLayout([self.backButton]))
     self.layout().addStretch(1)
+    super(ProstateCryoAblationZFrameRegistrationStep, self).setup()
 
   def onBackButtonClicked(self):
     self.resetZFrameRegistration()

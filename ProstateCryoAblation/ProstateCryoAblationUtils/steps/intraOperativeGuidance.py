@@ -5,13 +5,11 @@ import slicer
 import vtk
 from ..constants import ProstateCryoAblationConstants
 from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationLogicBase,ProstateCryoAblationStep
-from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
-
 
 class ProstateCryoAblationGuidanceStepLogic(ProstateCryoAblationLogicBase): # make it the same as overview for now
 
-  def __init__(self):
-    super(ProstateCryoAblationGuidanceStepLogic, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationGuidanceStepLogic, self).__init__(prostateCryoAblationSession)
     self.GuidanceVolume = None
 
 
@@ -20,16 +18,14 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
   NAME = "Guidance"
   LogicClass = ProstateCryoAblationGuidanceStepLogic
   LayoutClass = qt.QVBoxLayout
-  def __init__(self):
+  def __init__(self, prostateCryoAblationSession):
     self.notifyUserAboutNewData = True
-    super(ProstateCryoAblationGuidanceStep, self).__init__()
-
+    super(ProstateCryoAblationGuidanceStep, self).__init__(prostateCryoAblationSession)
 
   def setup(self):
     super(ProstateCryoAblationGuidanceStep, self).setup()
-    self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
-    self.addPlugin(self.targetingPlugin)
-    self.layout().addWidget(self.targetingPlugin.targetTablePlugin)
+    self.addPlugin(self.session.targetingPlugin)
+    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
     self.addNavigationButtons()
     self.layout().addStretch(1)
 

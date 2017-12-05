@@ -5,7 +5,6 @@ import logging
 from ...constants import ProstateCryoAblationConstants as constants
 from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStepLogic
-from ...session import ProstateCryoAblationSession
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
@@ -41,14 +40,14 @@ class CheckBoxDelegate(qt.QItemDelegate):
     if not (qt.Qt.ItemIsEditable & index.flags()):
       return None
     rowNum = index.row()
-    checked = self.parent().session.displayForTargets.get(rowNum)
+    checked = self.session.displayForTargets.get(rowNum)
     if checked is None:
       return None
     customCheckbox = MyCheckBox(parentWidget)
     self.listCB[rowNum] = customCheckbox
     self.checkBoxDict[customCheckbox] = index
     customCheckbox.cb.setChecked(checked)
-    customCheckbox.cb.stateChanged.connect(lambda checked, rowNum=rowNum, parent=self.parent(): self.stateChanged(checked, self.listCB[rowNum], parent))
+    customCheckbox.cb.stateChanged.connect(lambda checked, rowNum=rowNum: self.stateChanged(checked, self.listCB[rowNum]))
     return customCheckbox
   """
   def setEditorData(self, editor, index):
@@ -61,11 +60,11 @@ class CheckBoxDelegate(qt.QItemDelegate):
     #Send data to the model
     model.setData(index, editor.cb.isChecked(), qt.Qt.EditRole)
   """
-  def stateChanged(self, checked, checkBox, parent):
+  def stateChanged(self, checked, checkBox):
     if self.checkBoxDict.get(checkBox):
       targetRowNum = self.checkBoxDict[checkBox].row()
-      self.parent().session.displayForTargets[targetRowNum] = checked
-      self.parent().session.steps[2].updateAffectiveZone()
+      self.session.displayForTargets[targetRowNum] = checked
+      self.session.steps[2].updateAffectiveZone()
 
 class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
@@ -112,10 +111,9 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self._cursorPosition = cursorPosition
     self.dataChanged(self.index(0, 1), self.index(self.rowCount()-1, 2))
 
-  def __init__(self, logic, targets=None, parent=None, *args):
+  def __init__(self, prostateCryoAblationSession, targets=None, parent=None, *args):
     qt.QAbstractTableModel.__init__(self, parent, *args)
-    self.session = ProstateCryoAblationSession()
-    self.logic = logic
+    self.session = prostateCryoAblationSession
     self._cursorPosition = None
     self._targetList = None
     self._guidanceComputations = []
@@ -148,7 +146,7 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
         guidance = crntGuidance
         break
     if not guidance:
-      self._guidanceComputations.append(ZFrameGuidanceComputation(targetList))
+      self._guidanceComputations.append(ZFrameGuidanceComputation(self.session, targetList))
       guidance = self._guidanceComputations[-1]
     if self._targetList is targetList:
       self.updateHoleAndDepth()
@@ -234,9 +232,9 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
 
   SUPPORTED_EVENTS = [vtk.vtkCommand.ModifiedEvent]
 
-  def __init__(self, targetList = None):
-    self.session = ProstateCryoAblationSession()
-    self.zFrameRegistration = ProstateCryoAblationZFrameRegistrationStepLogic()
+  def __init__(self, prostateCryoAblationSession, targetList = None):
+    self.zFrameRegistration = ProstateCryoAblationZFrameRegistrationStepLogic(prostateCryoAblationSession)
+    self.session = prostateCryoAblationSession
     self.targetList = targetList
     if self.targetList:
       self.observer = self.targetList.AddObserver(self.targetList.PointModifiedEvent, self.calculate)
@@ -339,8 +337,8 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
 
 class ProstateCryoAblationTargetTableLogic(ProstateCryoAblationLogicBase):
 
-  def __init__(self):
-    super(ProstateCryoAblationTargetTableLogic, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationTargetTableLogic, self).__init__(prostateCryoAblationSession)
 
   def setTargetSelected(self, targetNode, selected=False):
     self.markupsLogic.SetAllMarkupsSelected(targetNode, selected)
@@ -349,7 +347,7 @@ class ProstateCryoAblationTargetTableLogic(ProstateCryoAblationLogicBase):
 class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
 
   NAME = "TargetTable"
-  LogicClass = ProstateCryoAblationTargetTableLogic
+  #LogicClass = ProstateCryoAblationTargetTableLogic
 
   TargetPosUpdatedEvent = vtk.vtkCommand.UserEvent + 337
 
@@ -397,8 +395,16 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if self.currentTargets:
       self.onTargetSelectionChanged()
 
-  def __init__(self, **kwargs):
-    super(ProstateCryoAblationTargetTablePlugin, self).__init__()
+  def __init__(self, prostateCryoAblationSession, **kwargs):
+    super(ProstateCryoAblationTargetTablePlugin, self).__init__(prostateCryoAblationSession)
+    self.targetTable = qt.QTableView()
+    self.targetTableModel = CustomTargetTableModel(self.session)
+    self.targetTable.setModel(self.targetTableModel)
+    #self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
+    self.setTargetTableSizeConstraints()
+    self.targetTable.verticalHeader().hide()
+    self.targetTable.minimumHeight = 150
+    self.targetTable.setStyleSheet("QTableView::item:selected{background-color: #ff7f7f; color: black};")
     self.movingEnabled = kwargs.pop("movingEnabled", False)
     self.keyPressEventObservers = {}
     self.keyReleaseEventObservers = {}
@@ -406,14 +412,6 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
 
   def setup(self):
     super(ProstateCryoAblationTargetTablePlugin, self).setup()
-    self.targetTable = qt.QTableView()
-    self.targetTableModel = CustomTargetTableModel(self.logic)
-    self.targetTable.setModel(self.targetTableModel)
-    #self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
-    self.setTargetTableSizeConstraints()
-    self.targetTable.verticalHeader().hide()
-    self.targetTable.minimumHeight = 150
-    self.targetTable.setStyleSheet("QTableView::item:selected{background-color: #ff7f7f; color: black};")
     self.layout().addWidget(self.targetTable)
 
   def setTargetTableSizeConstraints(self):

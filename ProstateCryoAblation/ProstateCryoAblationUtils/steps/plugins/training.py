@@ -17,8 +17,8 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
 
   NAME = "Training"
 
-  def __init__(self):
-    super(ProstateCryoAblationTrainingPlugin, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationTrainingPlugin, self).__init__(prostateCryoAblationSession)
     self.sampleDownloader = SampleDataDownloader(True)
 
   def setup(self):

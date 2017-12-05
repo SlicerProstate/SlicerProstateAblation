@@ -16,8 +16,8 @@ from SlicerDevelopmentToolboxUtils.icons import Icons
 
 class ProstateCryoAblationCaseManagerLogic(ProstateCryoAblationLogicBase):
 
-  def __init__(self):
-    super(ProstateCryoAblationCaseManagerLogic, self).__init__()
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationCaseManagerLogic, self).__init__(prostateCryoAblationSession)
 
 
 class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
@@ -41,9 +41,8 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
     self.openCaseButton.enabled = exists
     self.createNewCaseButton.enabled = exists
 
-  def __init__(self):
-    super(ProstateCryoAblationCaseManagerPlugin, self).__init__()
-    self.caseRootDir = self.getSetting('CasesRootLocation', self.MODULE_NAME)
+  def __init__(self, prostateCryoAblationSession):
+    super(ProstateCryoAblationCaseManagerPlugin, self).__init__(prostateCryoAblationSession)
     slicer.app.connect('aboutToQuit()', self.onSlicerQuits)
 
   def onSlicerQuits(self):
@@ -70,6 +69,7 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
                                                                caption="Choose cases root location",
                                                                directory=self.getSetting('CasesRootLocation',
                                                                                          self.MODULE_NAME))
+    self.caseRootDir = self.getSetting('CasesRootLocation', self.MODULE_NAME)
     self.caseDirectoryInformationArea = ctk.ctkCollapsibleButton()
     self.caseDirectoryInformationArea.collapsed = True
     self.caseDirectoryInformationArea.text = "Directory Settings"
@@ -84,7 +84,7 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
                                                           self.closeCaseButton]))
     self.caseGroupBoxLayout.addWidget(self.caseDirectoryInformationArea)
     self.layout().addWidget(self.caseGroupBox)
-
+    
   def setupCaseWatchBox(self):
     watchBoxInformation = [WatchBoxAttribute('CurrentCaseDirectory', 'Directory'),
                            WatchBoxAttribute('CurrentIntraopDICOMDirectory', 'Intraop DICOM Directory: ')
