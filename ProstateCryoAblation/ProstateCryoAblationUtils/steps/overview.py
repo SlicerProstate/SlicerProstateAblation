@@ -56,10 +56,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.addPlugin(self.caseManagerPlugin)
     self.layout().addWidget(self.trainingPlugin)
     self.addPlugin(self.trainingPlugin)
-    self.addPlugin(self.session.targetingPlugin)
-    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
-    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.skipIntraopSeriesButton]))
-    self.layout().addStretch(1)
 
   def setupIntraopSeriesSelector(self):
     self.intraopSeriesSelector = qt.QComboBox()
@@ -136,6 +132,9 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def onActivation(self):
     super(ProstateCryoAblationOverviewStep, self).onActivation()
+    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
+    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.skipIntraopSeriesButton]))
+    self.layout().addStretch()
     self.updateIntraopSeriesSelectorTable()
 
   def onSeriesTypeManuallyAssigned(self, caller, event):

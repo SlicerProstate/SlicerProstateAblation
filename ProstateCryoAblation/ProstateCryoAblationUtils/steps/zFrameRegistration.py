@@ -309,7 +309,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.layout().addWidget(self.createHLayout([self.runZFrameRegistrationButton, self.retryZFrameRegistrationButton,
                                                 self.approveZFrameRegistrationButton]))
     self.layout().addWidget(self.createHLayout([self.backButton]))
-    self.layout().addStretch(1)
+    self.layout().addStretch()
 
   def onBackButtonClicked(self):
     self.resetZFrameRegistration()

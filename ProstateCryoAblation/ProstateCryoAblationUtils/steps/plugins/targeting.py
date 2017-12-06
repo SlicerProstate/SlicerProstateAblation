@@ -32,32 +32,20 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.fiducialsWidget.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
     self.targetingGroupBoxLayout.addRow(self.targetTablePlugin)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget)
-    self.targetingGroupBoxLayout.addRow(self.fiducialsWidget.buttons)
     self.layout().addWidget(self.targetingGroupBox, 1, 0, 2, 2)
-
-  def targetsWereNotDefined(self):
-    return (not self.session.movingTargets) or self.session.retryMode
 
   def onActivation(self):
     super(ProstateCryoAblationTargetingPlugin, self).onActivation()
-    self.fiducialsWidget.show()
-    self.targetTablePlugin.visible = False
-
-    if not self.targetsWereNotDefined():
-      self.fiducialsWidget.visible = False
-      self.fiducialsWidget.currentNode = self.session.movingTargets
-      self.targetTablePlugin.visible = True
-      self.targetTablePlugin.currentTargets = self.session.movingTargets
-
-    self.targetingGroupBox.visible = not self.session.retryMode
+    self.fiducialsWidget.table.visible = False
+    self.fiducialsWidget.currentNode = self.session.movingTargets
+    self.targetTablePlugin.visible = True
+    self.targetTablePlugin.currentTargets = self.session.movingTargets
+    self.targetingGroupBox.visible = True
 
   def onDeactivation(self):
     super(ProstateCryoAblationTargetingPlugin, self).onDeactivation()
     self.fiducialsWidget.reset()
     self.removeSliceAnnotations()
-
-  #def startTargeting(self):
-  #  self.fiducialsWidget.startPlacing()
 
   def addSliceAnnotations(self):
     self.removeSliceAnnotations()
@@ -87,17 +75,19 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
       guidance= self.targetTablePlugin.targetTableModel.getOrCreateNewGuidanceComputation(self.fiducialsWidget.currentNode)
       needleSnapPosition = guidance.getNeedleEndPos(currentTargetIndex)
       self.fiducialsWidget.currentNode.SetNthFiducialPositionFromArray(currentTargetIndex,needleSnapPosition)
+      self.session.displayForTargets[self.fiducialsWidget.currentNode.GetNthMarkupID(currentTargetIndex)] = qt.Qt.Unchecked
       self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupAddedEvent)
     pass
 
   def onEndTargetRemove(self, caller, event):
+    #self.displayForTargets[fiducialIndex] = qt.Qt.Unchecked
     self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent)
 
   def onTargetingStarted(self, caller, event):
     self.addSliceAnnotations()
-    self.fiducialsWidget.show()
     self.targetTablePlugin.visible = False
     self.targetTablePlugin.disableTargetMovingMode()
+    self.fiducialsWidget.table.visible = True
     self.invokeEvent(self.TargetingStartedEvent)
 
   def onTargetingFinished(self, caller, event):
@@ -105,7 +95,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     if self.fiducialsWidget.hasTargetListAtLeastOneTarget():
       self.session.movingTargets = self.fiducialsWidget.currentNode
       self.session.setupLoadedTargets()
-      self.fiducialsWidget.visible = False
+      self.fiducialsWidget.table.visible = False
       self.targetTablePlugin.visible = True
       self.targetTablePlugin.currentTargets = self.fiducialsWidget.currentNode
     else:

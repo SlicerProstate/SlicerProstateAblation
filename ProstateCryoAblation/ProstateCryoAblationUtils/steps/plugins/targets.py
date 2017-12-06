@@ -33,39 +33,32 @@ class CheckBoxDelegate(qt.QItemDelegate):
 
   def __init__(self, parent, prostateCryoAblationSession):
     qt.QItemDelegate.__init__(self, parent)
-    self.checkBoxDict = dict()
-    self.listCB = {}
     self.session = prostateCryoAblationSession
-    
+
   def createEditor(self, parentWidget, option, index):
     if not (qt.Qt.ItemIsEditable & index.flags()):
       return None
     rowNum = index.row()
-    checked = self.session.displayForTargets.get(rowNum)
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    checked = self.session.displayForTargets.get(targetNode.GetNthMarkupID(rowNum))
     if checked is None:
-      return None
-    customCheckbox = MyCheckBox(parentWidget)
-    self.listCB[rowNum] = customCheckbox
-    self.checkBoxDict[customCheckbox] = index
-    customCheckbox.cb.setChecked(checked)
-    customCheckbox.cb.stateChanged.connect(lambda checked, rowNum=rowNum: self.stateChanged(checked, self.listCB[rowNum]))
+      self.session.displayForTargets[targetNode.GetNthMarkupID(rowNum)] = qt.Qt.Unchecked
+      checked = qt.Qt.Unchecked
+    customCheckbox = qt.QCheckBox(parentWidget)
+    customCheckbox.setChecked(checked)
+    self.connect(customCheckbox, qt.SIGNAL("clicked()"), partial(self.clicked, customCheckbox))
     return customCheckbox
-  """
-  def setEditorData(self, editor, index):
-    # Update the value of the editor 
-    editor.blockSignals(True)
-    editor.cb.setChecked(index.data())
-    editor.blockSignals(False)
 
-  def setModelData(self, editor, model, index):
-    #Send data to the model
-    model.setData(index, editor.cb.isChecked(), qt.Qt.EditRole)
-  """
-  def stateChanged(self, checked, checkBox):
-    if self.checkBoxDict.get(checkBox):
-      targetRowNum = self.checkBoxDict[checkBox].row()
-      self.session.displayForTargets[targetRowNum] = checked
-      self.session.updateAffectiveZone()
+  def setModelData(self, checkbox, model, index):
+    # Send data to the model
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    self.session.displayForTargets[targetNode.GetNthMarkupID(rowNum)] = qt.Qt.Checked if checkbox.isChecked() else qt.Qt.Unchecked
+    model.setData(index, checkbox.isChecked(), qt.Qt.EditRole)
+    self.session.updateAffectiveZone()
+
+  def clicked(self, checkbox):
+    self.commitData.emit(checkbox)
 
 class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
@@ -87,11 +80,12 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
   def targetList(self, targetList):
     self._targetList = targetList
     if self.currentGuidanceComputation and self.observer:
-      self.self.currentGuidanceComputation.RemoveObserver(self.observer)
+      self.currentGuidanceComputation.RemoveObserver(self.observer)
     self.currentGuidanceComputation = self.getOrCreateNewGuidanceComputation(targetList)
     if self.currentGuidanceComputation:
       self.observer = self.currentGuidanceComputation.addEventObserver(vtk.vtkCommand.ModifiedEvent,
-                                                                       self.updateHoleAndDepth)
+                                                                       self.updateTable)
+    self.reset()
 
   @property
   def coverProstateTargetList(self):
@@ -149,13 +143,13 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
       self._guidanceComputations.append(ZFrameGuidanceComputation(self.session, targetList))
       guidance = self._guidanceComputations[-1]
     if self._targetList is targetList:
-      self.updateHoleAndDepth()
+      self.updateTable()
     return guidance
 
   def onZFrameRegistrationSuccessful(self, caller, event):
     self._guidanceComputations = []
 
-  def updateHoleAndDepth(self, caller=None, event=None):
+  def updateTable(self, caller=None, event=None):
     self.dataChanged(self.index(0, self.getColunmNumForHeaderName(self.COLUMN_HOLE)), self.index(self.rowCount() - 1, self.getColunmNumForHeaderName(self.COLUMN_DEPTH)))
     self.invokeEvent(vtk.vtkCommand.ModifiedEvent)
 
@@ -180,9 +174,13 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     if not index.isValid() or role not in [qt.Qt.DisplayRole, qt.Qt.ToolTipRole]:
       return None
 
+
     if col == 0:
       return self.targetList.GetNthFiducialLabel(row)
     elif col == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY):
+      if self.session.displayForTargets.get(self.targetList.GetNthMarkupID(row)):
+        checked = self.session.displayForTargets.get(self.targetList.GetNthMarkupID(row))
+        return qt.Qt.Checked if checked == qt.Qt.Checked else qt.Qt.Unchecked
       return None
     elif col == 2:
       return None
@@ -194,6 +192,8 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
   def getBackgroundOrToolTipData(self, index, role):
     if role not in [qt.Qt.BackgroundRole, qt.Qt.ToolTipRole]:
+      return None
+    if self.currentGuidanceComputation is None:
       return None
     backgroundRequested = role == qt.Qt.BackgroundRole
     row = index.row()
@@ -390,9 +390,10 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.targetTable.enabled = targets is not None
 
     displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_DISPLAY)
-    self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self.targetTableModel, self.session))
+    #self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self.targetTableModel, self.session))
     for row in range(0, self.targetTableModel.rowCount()):
       self.targetTable.openPersistentEditor(self.targetTableModel.index(row, displayCol))
+    #self.targetTable.setModel(self.targetTableModel)
     if self.currentTargets:
       self.onTargetSelectionChanged()
 
@@ -408,6 +409,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.targetTable = qt.QTableView()
     self.targetTableModel = CustomTargetTableModel(self.session)
     self.targetTable.setModel(self.targetTableModel)
+    self.targetTable.setItemDelegateForColumn(1, CheckBoxDelegate(self.targetTable, self.session))
     # self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
     self.setTargetTableSizeConstraints()
     self.targetTable.verticalHeader().hide()

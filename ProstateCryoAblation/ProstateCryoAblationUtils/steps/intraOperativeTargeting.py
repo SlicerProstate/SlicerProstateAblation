@@ -38,14 +38,13 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def setup(self):
     super(ProstateCryoAblationTargetingStep, self).setup()
     self.setupTargetingPlugin()
-    self.layout().addStretch(1)
+    self.addPlugin(self.session.targetingPlugin)
+    self.layout().addStretch()
 
   def setupTargetingPlugin(self):
     #self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingStartedEvent, self.onTargetingStarted)
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
-    self.layout().addWidget(self.session.targetingPlugin)
-    self.layout().addWidget(self.session.segmentationEditor)
   
   def onBackButtonClicked(self):
     if self.session.retryMode:
@@ -83,6 +82,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.session.movingTargets = self.session.data.intraOpTargets
 
   def onActivation(self):
+    super(ProstateCryoAblationTargetingStep, self).onActivation()
     self.session.fixedVolume = self.session.currentSeriesVolume
     if not self.session.fixedVolume:
       return
@@ -90,7 +90,10 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.setupFourUpView(self.session.currentSeriesVolume)
     self.session.segmentationEditor.setSegmentationNode(self.session.segmentModelNode)
     self.session.segmentationEditor.setMasterVolumeNode(self.session.currentSeriesVolume)
-    super(ProstateCryoAblationTargetingStep, self).onActivation()
+    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
+    self.layout().addWidget(self.session.targetingPlugin.fiducialsWidget)
+    self.layout().addWidget(self.session.segmentationEditor)
+    self.addNavigationButtons()
 
   def updateAvailableLayouts(self):
     pass

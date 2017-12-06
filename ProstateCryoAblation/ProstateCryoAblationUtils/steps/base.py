@@ -107,10 +107,7 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
   def deactivePlugin(self):
     for plugin in self._plugins:
       plugin.active = False
-  
-  def addPlugin(self, plugin):
-    self._plugins.append(plugin)    
-          
+
   @onModuleSelected(constants.MODULE_NAME)
   def onLayoutChanged(self, layout=None):
     pass
@@ -122,6 +119,7 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
 
   def addPlugin(self, plugin):
     plugin.addEventObserver(self.AvailableLayoutsChangedEvent, self.onPluginAvailableLayoutChanged)
+    self._plugins.append(plugin)
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onPluginAvailableLayoutChanged(self, caller, event, callData):

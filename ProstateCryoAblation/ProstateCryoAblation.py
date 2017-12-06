@@ -192,7 +192,7 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
     self.session = prostateCryoAblationSession
     self._createTabs()
     self.currentChanged.connect(self.onCurrentTabChanged)
-    #self.onCurrentTabChanged(0)
+    self.onCurrentTabChanged(0)
 
   def hideTabs(self):
     self.tabBar().hide()

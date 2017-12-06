@@ -168,7 +168,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.seriesTypeManager.addEventObserver(self.seriesTypeManager.SeriesTypeManuallyAssignedEvent,
                                             lambda caller, event: self.invokeEvent(self.SeriesTypeManuallyAssignedEvent))
     self.targetingPlugin = ProstateCryoAblationTargetingPlugin(self)
-    self.targetingPlugin.setup()
     self.needlePathCaculator = ZFrameGuidanceComputation(self)
     self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.resetAndInitializeMembers()
@@ -299,7 +298,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.data.resumed = not self.data.completed
     if self.data.intraOpTargets:
       for fiducialIndex in range(self.data.intraOpTargets.GetNumberOfFiducials()):
-        self.displayForTargets[fiducialIndex] = qt.Qt.Unchecked
+        self.displayForTargets[self.data.intraOpTargets.GetNthMarkupID(fiducialIndex)] = qt.Qt.Unchecked
       self.movingTargets = self.data.intraOpTargets
       self.targetingPlugin.targetTablePlugin.currentTargets = self.movingTargets
       self.targetingPlugin.targetTablePlugin.visible = True
@@ -377,7 +376,9 @@ class ProstateCryoAblationSession(StepBasedSession):
     ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
     for targetIndex in range(targetingNode.GetNumberOfFiducials()):
-      self.displayForTargets[targetIndex] = qt.Qt.Checked if checked else qt.Qt.Unchecked
+      self.displayForTargets[targetingNode.GetNthMarkupID(targetIndex)] = qt.Qt.Checked if checked else qt.Qt.Unchecked
+      self.targetingPlugin.
+      #self.targetingPlugin.
     self.updateAffectiveZone()
     if not self.segmentationEditorShow3DButton.isChecked() == checked:
       self.segmentationEditorShow3DButton.checked = checked
@@ -399,7 +400,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       offsetFromTip = 5.0 #unit mm
       coneHeight = 5.0
       for targetIndex in range(targetingNode.GetNumberOfFiducials()):
-        if self.displayForTargets.get(targetIndex) == qt.Qt.Checked:
+        if self.displayForTargets.get(targetingNode.GetNthMarkupID(targetIndex)) == qt.Qt.Checked:
           targetPosition = [0.0,0.0,0.0]
           targetingNode.GetNthFiducialPosition(targetIndex, targetPosition)
           (start, end, indexX, indexY, depth, inRange) = self.needlePathCaculator.computeNearestPath(targetPosition)
