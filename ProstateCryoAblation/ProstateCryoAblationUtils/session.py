@@ -48,6 +48,9 @@ class ProstateCryoAblationSession(StepBasedSession):
   NEEDLE_NAME = 'NeedlePath'
   
   AFFECTEDAREA_NAME = "AffectedArea"
+
+  ISSEEDTYPE = "IsSeedType"
+  ISRODTYPE = "IsRodType"
   
   @property
   def intraopDICOMDirectory(self):
@@ -190,6 +193,8 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def resetAndInitializedTargetsAndSegments(self):
     self.displayForTargets = dict()
+    self.needleTypeForTargets = dict()
+    self.targetingPlugin.cleanup()
     self.needleModelNode = None
     self.affectedAreaModelNode = None
     self.segmentationEditorNoneButton = None
@@ -258,14 +263,16 @@ class ProstateCryoAblationSession(StepBasedSession):
       return
     message = None
     if save:
+      self.data.savedNeedleTypeForTargets = self.needleTypeForTargets.copy()
       success, failedFileNames = self.data.close(self.outputDirectory)
       message = "Case data has been saved successfully." if success else \
         "The following data failed to saved:\n %s" % failedFileNames
+    self.invokeEvent(self.CloseCaseEvent, str(message))
     self.resetAndInitializeMembers()
     self.resetAndInitializedTargetsAndSegments()
-    self.invokeEvent(self.CloseCaseEvent, str(message))
 
   def save(self):
+    self.data.savedNeedleTypeForTargets = self.needleTypeForTargets.copy()
     success, failedFileNames = self.data.save(self.outputDirectory)
     return success and not len(failedFileNames), "The following data failed to saved:\n %s" % failedFileNames
 
@@ -282,7 +289,6 @@ class ProstateCryoAblationSession(StepBasedSession):
       slicer.app.layoutManager().blockSignals(True)
       self._loading = True
       self.data.load(filename)
-      #self.resetAndInitializedTargetsAndSegments()
       self.postProcessLoadedSessionData()
       self._loading = False
       slicer.app.layoutManager().blockSignals(False)
@@ -299,6 +305,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self.data.intraOpTargets:
       for fiducialIndex in range(self.data.intraOpTargets.GetNumberOfFiducials()):
         self.displayForTargets[self.data.intraOpTargets.GetNthMarkupID(fiducialIndex)] = qt.Qt.Unchecked
+      self.needleTypeForTargets = self.data.savedNeedleTypeForTargets.copy()
       self.movingTargets = self.data.intraOpTargets
       self.targetingPlugin.targetTablePlugin.currentTargets = self.movingTargets
       self.targetingPlugin.targetTablePlugin.visible = True
@@ -376,8 +383,10 @@ class ProstateCryoAblationSession(StepBasedSession):
     ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
     for targetIndex in range(targetingNode.GetNumberOfFiducials()):
-      self.displayForTargets[targetingNode.GetNthMarkupID(targetIndex)] = qt.Qt.Checked if checked else qt.Qt.Unchecked
-      self.targetingPlugin.
+      checkboxStatus = qt.Qt.Checked if checked else qt.Qt.Unchecked
+      self.displayForTargets[targetingNode.GetNthMarkupID(targetIndex)] = checkboxStatus
+      if self.targetingPlugin.targetTablePlugin.checkBoxList.get(targetingNode.GetNthMarkupID(targetIndex)):
+        self.targetingPlugin.targetTablePlugin.checkBoxList[targetingNode.GetNthMarkupID(targetIndex)].setChecked(checkboxStatus)
       #self.targetingPlugin.
     self.updateAffectiveZone()
     if not self.segmentationEditorShow3DButton.isChecked() == checked:
@@ -396,11 +405,11 @@ class ProstateCryoAblationSession(StepBasedSession):
       zFrameTransformMatrix = self.data.zFrameRegistrationResult.transform.GetMatrixTransformToParent()
       # The offset and ellipsoid parameters are taken from the following source code
       # http://viewvc.slicer.org/viewvc.cgi/NAMICSandBox/trunk/IGTLoadableModules/ProstateNav/TransPerinealProstateCryoTemplate/vtkMRMLTransPerinealProstateCryoTemplateNode.cxx?revision=8043&view=markup
-      affectedBallAreaRadius = self.GetIceBallRadius() # unit mm
       offsetFromTip = 5.0 #unit mm
       coneHeight = 5.0
       for targetIndex in range(targetingNode.GetNumberOfFiducials()):
         if self.displayForTargets.get(targetingNode.GetNthMarkupID(targetIndex)) == qt.Qt.Checked:
+          affectedBallAreaRadius = self.GetIceBallRadius(self.needleTypeForTargets.get(targetingNode.GetNthMarkupID(targetIndex)))  # unit mm
           targetPosition = [0.0,0.0,0.0]
           targetingNode.GetNthFiducialPosition(targetIndex, targetPosition)
           (start, end, indexX, indexY, depth, inRange) = self.needlePathCaculator.computeNearestPath(targetPosition)
@@ -457,6 +466,8 @@ class ProstateCryoAblationSession(StepBasedSession):
 
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
+      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, True)
+      ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, True)
     pass 
   
   def setupLoadedTransform(self):
@@ -660,12 +671,8 @@ class ProstateCryoAblationSession(StepBasedSession):
       message = "The selected directory does not fit the directory structure. Make sure that you select the " \
                 "study root directory which includes directories RESOURCES"
       return message
-
-
-    self.data.intraOpTargetsPath = os.path.join(directory, 'Targets')
     seriesMap =[]
     self.loadImageAndLabel(seriesMap)
-
     if self.segmentationPath is None:
       message = "No segmentations found.\nMake sure that you used segment editor for segmenting the prostate first and using " \
                 "its output as the data input here."
@@ -732,10 +739,10 @@ class ProstateCryoAblationSession(StepBasedSession):
     self._loading = getattr(self, "_loading", False)
     return self._loading
 
-  def GetIceBallRadius(self):
-    if str(self.getSetting("NeedleType")).lower()== "icerod":
+  def GetIceBallRadius(self, type):
+    if type == self.ISRODTYPE:
       return numpy.array(self.getSetting("NeedleRadius_ICEROD").split())
-    elif str(self.getSetting("NeedleType")).lower()== "iceseed":
+    elif type == self.ISSEEDTYPE:
       return numpy.array(self.getSetting("NeedleRadius_ICESEED").split())
     else:
       needleRadius = numpy.array([0,0,0])

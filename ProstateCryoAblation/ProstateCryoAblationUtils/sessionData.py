@@ -57,18 +57,14 @@ class SessionData(ModuleLogicMixin):
     self.startTimeStamp = self.getTime()
     self.resumeTimeStamps = []
     self.closedLogTimeStamps = []
-
+    self.savedNeedleTypeForTargets = dict()
+    self.savedNeedleTypeForTargets.clear()
     self.completed = False
-
     self.segmentModelNode = None
-
     self.initialVolume = None
     self.initialLabel = None
     self.intraOpTargets = None
-    self.intraOpTargetsPath = None
-
     self.zFrameRegistrationResult = None
-
     self.customProgressBar = CustomStatusProgressbar()
     
 
@@ -99,9 +95,15 @@ class SessionData(ModuleLogicMixin):
       self.readProcedureEvents(data["procedureEvents"])
 
       if "intraOpTargets" in data.keys():
-        self.intraOpTargets = self._loadOrGetFileData(directory,
-                                                      data["intraOpTargets"], slicer.util.loadMarkupsFiducialList)
-        self.intraOpTargetsPath = os.path.join(directory, data["intraOpTargets"])
+        intraOpTargetsInfo = data["intraOpTargets"]
+        if type(intraOpTargetsInfo) == type(dict()):
+          self.intraOpTargets = self._loadOrGetFileData(directory,
+                                                        intraOpTargetsInfo["targetFile"],
+                                                        slicer.util.loadMarkupsFiducialList)
+          self.savedNeedleTypeForTargets = intraOpTargetsInfo.get("needleType")
+        elif type(intraOpTargetsInfo) == type(unicode()): # ensure backward compatibility to load old data
+          self.intraOpTargets = self._loadOrGetFileData(directory, data["intraOpTargets"],
+                                                        slicer.util.loadMarkupsFiducialList)
         self.intraOpTargets.SetLocked(True)
 
       if "zFrameRegistration" in data.keys():
@@ -164,18 +166,21 @@ class SessionData(ModuleLogicMixin):
           return name + ".seg.nrrd"
       return None
 
-    def saveIntraOpTargets():
-      success, name = self.saveNodeData(self.intraOpTargets, outputDir, FileExtension.FCSV,
-                                        name="IntraOpTargets", overwrite=True)
-      self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
-      return name + FileExtension.FCSV
-
     def saveInitialVolume():
       success, name = self.saveNodeData(self.initialVolume, outputDir, FileExtension.NRRD, overwrite=True)
       self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
       return name + FileExtension.NRRD
 
     data = {}
+
+    def saveIntraOpTargets():
+      success, name = self.saveNodeData(self.intraOpTargets, outputDir, FileExtension.FCSV,
+                                        name="IntraOpTargets", overwrite=True)
+      self.handleSaveNodeDataReturn(success, name, successfullySavedFileNames, failedSaveOfFileNames)
+      intraOpTargetsInfo = {"targetFile": name + FileExtension.FCSV}
+      intraOpTargetsInfo["needleType"] = self.savedNeedleTypeForTargets
+      data["intraOpTargets"] = intraOpTargetsInfo
+      return
 
     def addProcedureEvents():
       procedureEvents = {
@@ -195,7 +200,7 @@ class SessionData(ModuleLogicMixin):
       data["zFrameRegistration"] = self.zFrameRegistrationResult.save(outputDir)
 
     if self.intraOpTargets:
-      data["intraOpTargets"] = saveIntraOpTargets()
+      saveIntraOpTargets()
 
     if self.initialVolume:
       data["initialVolume"] = saveInitialVolume()

@@ -2,6 +2,7 @@ import qt
 import vtk
 import numpy
 import logging
+import slicer
 from ...constants import ProstateCryoAblationConstants as constants
 from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
 from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStepLogic
@@ -17,6 +18,7 @@ class MyCheckBox(qt.QWidget):
     # create a centered checkbox
     self.cb = qt.QCheckBox(parent)
     cbLayout = qt.QHBoxLayout()
+    self.cb.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
     cbLayout.addWidget(self.cb, 0, qt.Qt.AlignCenter)
     self.setLayout(cbLayout)
     self.cb.toggled.connect(self.amClicked)
@@ -24,6 +26,11 @@ class MyCheckBox(qt.QWidget):
   def amClicked(self):
     self.cb.clicked.emit()
 
+  def setChecked(self, check):
+    self.cb.setChecked(check)
+
+  def isChecked(self):
+    return self.cb.isChecked()
 
 class CheckBoxDelegate(qt.QItemDelegate):
   """
@@ -35,7 +42,7 @@ class CheckBoxDelegate(qt.QItemDelegate):
     qt.QItemDelegate.__init__(self, parent)
     self.session = prostateCryoAblationSession
 
-  def createEditor(self, parentWidget, option, index):
+  def createEditor(self, painDevice, option, index):
     if not (qt.Qt.ItemIsEditable & index.flags()):
       return None
     rowNum = index.row()
@@ -44,9 +51,11 @@ class CheckBoxDelegate(qt.QItemDelegate):
     if checked is None:
       self.session.displayForTargets[targetNode.GetNthMarkupID(rowNum)] = qt.Qt.Unchecked
       checked = qt.Qt.Unchecked
-    customCheckbox = qt.QCheckBox(parentWidget)
-    customCheckbox.setChecked(checked)
-    self.connect(customCheckbox, qt.SIGNAL("clicked()"), partial(self.clicked, customCheckbox))
+    customCheckbox = MyCheckBox(painDevice)
+    if not (self.parent().checkBoxList is None):
+      self.parent().checkBoxList[targetNode.GetNthMarkupID(rowNum)] = customCheckbox
+    customCheckbox.cb.setChecked(checked)
+    self.connect(customCheckbox.cb, qt.SIGNAL("clicked()"), partial(self.clicked, customCheckbox))
     return customCheckbox
 
   def setModelData(self, checkbox, model, index):
@@ -60,17 +69,71 @@ class CheckBoxDelegate(qt.QItemDelegate):
   def clicked(self, checkbox):
     self.commitData.emit(checkbox)
 
+
+class ComBoxDelegate(qt.QItemDelegate):
+  """
+  A delegate that places a fully functioning QCheckBox in every
+  cell of the column to which it's applied
+  """
+
+  def __init__(self, parent, prostateCryoAblationSession):
+    qt.QItemDelegate.__init__(self, parent)
+    self.session = prostateCryoAblationSession
+
+  def createEditor(self, painDevice, option, index):
+    if not (qt.Qt.ItemIsEditable & index.flags()):
+      return None
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    needleType = self.session.needleTypeForTargets.get(targetNode.GetNthMarkupID(rowNum))
+    if needleType is None:
+      self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)] = self.session.ISSEEDTYPE
+      needleType =  self.session.ISSEEDTYPE
+    comboBox = qt.QComboBox(painDevice)
+    comboBoxItems = []
+    comboBoxItems.append(self.session.ISSEEDTYPE)
+    comboBoxItems.append(self.session.ISRODTYPE)
+    comboBox.addItems(comboBoxItems)
+    comboBox.setCurrentIndex(0)
+    if not (self.parent().comboBoxList is None):
+      self.parent().comboBoxList[targetNode.GetNthMarkupID(rowNum)] = comboBox
+    self.connect(comboBox, qt.SIGNAL("currentIndexChanged(int)"), partial(self.currentIndexChanged, comboBox))
+    return comboBox
+
+  def setModelData(self, comboBox, model, index):
+    # Send data to the model
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    storedIndex = comboBox.findText(self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)])
+    if not storedIndex == comboBox.currentIndex:
+      if slicer.util.confirmYesNoDisplay("Do you really want to Change the needle type? ", title="Needle Type Select",
+                                         windowTitle="ProstateCryoAblation"):
+
+        self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)] = comboBox.currentText
+        model.setData(index, comboBox.currentText, qt.Qt.EditRole)
+        self.session.updateAffectiveZone()
+      else:
+        storedIndex =  comboBox.findText(self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)])
+        comboBox.blockSignals(True)
+        comboBox.setCurrentIndex(storedIndex)
+        comboBox.blockSignals(False)
+
+  def currentIndexChanged(self, comboBox, int):
+    print int, comboBox.currentText
+    self.commitData.emit(comboBox)
+
+
 class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
 
   PLANNING_IMAGE_NAME = "Initial registration"
 
   COLUMN_NAME = 'Name'
   COLUMN_DISPLAY = 'Display'
-  COLUMN_PROBETYPE = 'ProbeType'
+  COLUMN_NEEDLETYPE = 'NeedleType'
   COLUMN_HOLE = 'Hole'
   COLUMN_DEPTH = 'Depth[cm]'
 
-  headers = [COLUMN_NAME, COLUMN_DISPLAY, COLUMN_PROBETYPE, COLUMN_HOLE, COLUMN_DEPTH]
+  headers = [COLUMN_NAME, COLUMN_DISPLAY, COLUMN_NEEDLETYPE, COLUMN_HOLE, COLUMN_DEPTH]
 
   @property
   def targetList(self):
@@ -119,12 +182,17 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self.session.addEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
   
   def flags(self, index):
-    if (index.column() == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY)):
+    if index.column() == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY) \
+        or index.column() == self.getColunmNumForHeaderName(self.COLUMN_NEEDLETYPE):
       return qt.Qt.ItemIsEnabled | qt.Qt.ItemIsEditable
     else:
       return qt.Qt.ItemIsEnabled
   
-  
+  def headerData(self, col, orientation, role):
+    if orientation == qt.Qt.Horizontal and role in [qt.Qt.DisplayRole, qt.Qt.ToolTipRole]:
+      return self.headers[col]
+    return None
+
   def getColunmNumForHeaderName(self, headerName):
     for col, name in enumerate(self.headers):
       if headerName == name:
@@ -178,11 +246,8 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     if col == 0:
       return self.targetList.GetNthFiducialLabel(row)
     elif col == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY):
-      if self.session.displayForTargets.get(self.targetList.GetNthMarkupID(row)):
-        checked = self.session.displayForTargets.get(self.targetList.GetNthMarkupID(row))
-        return qt.Qt.Checked if checked == qt.Qt.Checked else qt.Qt.Unchecked
       return None
-    elif col == 2:
+    elif col == self.getColunmNumForHeaderName(self.COLUMN_NEEDLETYPE):
       return None
     elif col == 3 and self.session.zFrameRegistrationSuccessful:
       return self.currentGuidanceComputation.getZFrameHole(row)
@@ -388,18 +453,19 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     if not targets:
       self.targetTableModel.coverProstateTargetList = None
     self.targetTable.enabled = targets is not None
-
-    displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_DISPLAY)
-    #self.targetTable.setItemDelegateForColumn(displayCol, CheckBoxDelegate(self.targetTableModel, self.session))
     for row in range(0, self.targetTableModel.rowCount()):
-      self.targetTable.openPersistentEditor(self.targetTableModel.index(row, displayCol))
-    #self.targetTable.setModel(self.targetTableModel)
+      self.targetTable.openPersistentEditor(self.targetTableModel.index(row, self.displayCol))
+      self.targetTable.openPersistentEditor(self.targetTableModel.index(row, self.needleTypeCol))
+      storedIndex = self.comboBoxList[self.currentTargets.GetNthMarkupID(row)].findText(self.session.needleTypeForTargets[self.currentTargets.GetNthMarkupID(row)])
+      self.comboBoxList[self.currentTargets.GetNthMarkupID(row)].setCurrentIndex(storedIndex)
     if self.currentTargets:
       self.onTargetSelectionChanged()
 
   def __init__(self, prostateCryoAblationSession, **kwargs):
     super(ProstateCryoAblationTargetTablePlugin, self).__init__(prostateCryoAblationSession)
     self.movingEnabled = kwargs.pop("movingEnabled", False)
+    self.checkBoxList = dict()
+    self.comboBoxList = dict()
     self.keyPressEventObservers = {}
     self.keyReleaseEventObservers = {}
     self.mouseReleaseEventObservers = {}
@@ -409,14 +475,22 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.targetTable = qt.QTableView()
     self.targetTableModel = CustomTargetTableModel(self.session)
     self.targetTable.setModel(self.targetTableModel)
-    self.targetTable.setItemDelegateForColumn(1, CheckBoxDelegate(self.targetTable, self.session))
-    # self.targetTable.setSelectionBehavior(qt.QTableView.SelectItems)
+    self.displayCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_DISPLAY)
+    self.needleTypeCol = self.targetTableModel.getColunmNumForHeaderName(self.targetTableModel.COLUMN_NEEDLETYPE)
+    self.targetTable.setItemDelegateForColumn(self.displayCol, CheckBoxDelegate(self, self.session))
+    self.targetTable.setItemDelegateForColumn(self.needleTypeCol, ComBoxDelegate(self, self.session))
     self.setTargetTableSizeConstraints()
     self.targetTable.verticalHeader().hide()
     self.targetTable.minimumHeight = 150
     self.targetTable.setStyleSheet("QTableView::item:selected{background-color: #ff7f7f; color: black};")
     self.layout().addWidget(self.targetTable)
-
+  
+  def cleanup(self):
+    self.onDeactivation()
+    self.currentTargets = None
+    self.checkBoxList.clear()
+    self.comboBoxList.clear()
+  
   def setTargetTableSizeConstraints(self):
     self.targetTable.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.targetTable.horizontalHeader().setResizeMode(0, qt.QHeaderView.Fixed)

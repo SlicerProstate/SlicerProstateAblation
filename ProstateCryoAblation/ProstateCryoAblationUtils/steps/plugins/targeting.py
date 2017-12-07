@@ -42,6 +42,10 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.targetTablePlugin.currentTargets = self.session.movingTargets
     self.targetingGroupBox.visible = True
 
+  def cleanup(self):
+    self.fiducialsWidget.reset()
+    self.targetTablePlugin.cleanup()
+
   def onDeactivation(self):
     super(ProstateCryoAblationTargetingPlugin, self).onDeactivation()
     self.fiducialsWidget.reset()
@@ -76,11 +80,28 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
       needleSnapPosition = guidance.getNeedleEndPos(currentTargetIndex)
       self.fiducialsWidget.currentNode.SetNthFiducialPositionFromArray(currentTargetIndex,needleSnapPosition)
       self.session.displayForTargets[self.fiducialsWidget.currentNode.GetNthMarkupID(currentTargetIndex)] = qt.Qt.Unchecked
+      self.session.needleTypeForTargets[self.fiducialsWidget.currentNode.GetNthMarkupID(currentTargetIndex)] = self.session.ISSEEDTYPE
       self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupAddedEvent)
     pass
 
-  def onEndTargetRemove(self, caller, event):
-    #self.displayForTargets[fiducialIndex] = qt.Qt.Unchecked
+  @vtk.calldata_type(vtk.VTK_INT)
+  def onEndTargetRemove(self, caller, event, callData):
+    tempCheckBoxList = self.targetTablePlugin.checkBoxList.copy()
+    tempComboBoxList = self.targetTablePlugin.comboBoxList.copy()
+    tempDisplayForTargets = self.session.displayForTargets.copy()
+    tempNeedleTypeForTargets = self.session.needleTypeForTargets.copy()
+
+    self.targetTablePlugin.checkBoxList.clear()
+    self.targetTablePlugin.comboBoxList.clear()
+    self.session.displayForTargets.clear()
+    self.session.needleTypeForTargets.clear()
+    for index in range(self.fiducialsWidget.currentNode.GetNumberOfFiducials()):
+      key = self.fiducialsWidget.currentNode.GetNthMarkupID(index)
+      if key is not None:
+        self.targetTablePlugin.checkBoxList[key] = tempCheckBoxList.get(key)
+        self.targetTablePlugin.comboBoxList[key] = tempComboBoxList.get(key)
+        self.session.displayForTargets[key] = tempDisplayForTargets.get(key)
+        self.session.needleTypeForTargets[key] = tempNeedleTypeForTargets.get(key)
     self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent)
 
   def onTargetingStarted(self, caller, event):
