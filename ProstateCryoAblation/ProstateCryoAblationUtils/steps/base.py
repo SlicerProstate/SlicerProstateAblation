@@ -46,6 +46,9 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
   def setup(self):
     pass
 
+  def cleanup(self):
+    pass
+
   def setupIcons(self):
     pass
   
@@ -217,6 +220,9 @@ class ProstateCryoAblationLogicBase(ModuleLogicMixin):
     super(ProstateCryoAblationLogicBase, self).__init__()
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self.session = session
+
+  def cleanup(self):
+    pass
 
 class ProstateCryoAblationPlugin(ProstateCryoAblationWidgetBase):
 

@@ -127,6 +127,7 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
       else:
         self.session.close(save=slicer.util.confirmYesNoDisplay("Save the case data?", title="Close Case",
                                                                 windowTitle="ProstateCryoAblation"))
+    self.session.clearData()
 
   @logmethod(logging.INFO)
   def onNewCaseStarted(self, caller, event):

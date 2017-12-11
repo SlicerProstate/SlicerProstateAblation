@@ -35,7 +35,6 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.trackTargetsButton.enabled = False
     self.skipIntraopSeriesButton.enabled = False
     self.updateIntraopSeriesSelectorTable()
-    slicer.mrmlScene.Clear(0)
 
   def setupIcons(self):
     self.trackIcon = self.createIcon('icon-track.png')

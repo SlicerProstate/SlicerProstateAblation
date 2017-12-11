@@ -119,7 +119,6 @@ class ComBoxDelegate(qt.QItemDelegate):
         comboBox.blockSignals(False)
 
   def currentIndexChanged(self, comboBox, int):
-    print int, comboBox.currentText
     self.commitData.emit(comboBox)
 
 

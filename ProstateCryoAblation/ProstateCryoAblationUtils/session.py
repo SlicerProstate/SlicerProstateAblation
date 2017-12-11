@@ -212,6 +212,9 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.clearData()
 
   def clearData(self):
+    slicer.mrmlScene.Clear(0)
+    for step in self.steps:
+      step.cleanup()
     self.resetAndInitializeMembers()
     self.resetAndInitializedTargetsAndSegments()
 
@@ -378,18 +381,19 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def onShowAffectiveZoneToggled(self, checked):
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
-    for targetIndex in range(targetingNode.GetNumberOfFiducials()):
-      checkboxStatus = qt.Qt.Checked if checked else qt.Qt.Unchecked
-      self.displayForTargets[targetingNode.GetNthMarkupID(targetIndex)] = checkboxStatus
-      if self.targetingPlugin.targetTablePlugin.checkBoxList.get(targetingNode.GetNthMarkupID(targetIndex)):
-        self.targetingPlugin.targetTablePlugin.checkBoxList[targetingNode.GetNthMarkupID(targetIndex)].setChecked(checkboxStatus)
-      #self.targetingPlugin.
-    self.updateAffectiveZone()
-    if not self.segmentationEditorShow3DButton.isChecked() == checked:
-      self.segmentationEditorShow3DButton.checked = checked
-    if self.data.segmentModelNode:
-      if not self.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
-        self.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
+    if targetingNode is not None:
+      for targetIndex in range(targetingNode.GetNumberOfFiducials()):
+        checkboxStatus = qt.Qt.Checked if checked else qt.Qt.Unchecked
+        self.displayForTargets[targetingNode.GetNthMarkupID(targetIndex)] = checkboxStatus
+        if self.targetingPlugin.targetTablePlugin.checkBoxList.get(targetingNode.GetNthMarkupID(targetIndex)):
+          self.targetingPlugin.targetTablePlugin.checkBoxList[targetingNode.GetNthMarkupID(targetIndex)].setChecked(checkboxStatus)
+        #self.targetingPlugin.
+      self.updateAffectiveZone()
+      if not self.segmentationEditorShow3DButton.isChecked() == checked:
+        self.segmentationEditorShow3DButton.checked = checked
+      if self.data.segmentModelNode:
+        if not self.data.segmentModelNode.GetDisplayNode().GetVisibility() == checked:
+          self.data.segmentModelNode.GetDisplayNode().SetVisibility(checked)
 
   def updateAffectiveZone(self, caller = None, event = None):
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets

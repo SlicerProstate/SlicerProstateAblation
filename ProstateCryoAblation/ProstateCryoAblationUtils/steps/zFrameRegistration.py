@@ -59,7 +59,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   ZFRAME_NEEDLEPATH_CONFIG_FILE_NAME = 'CryoAblationTemplate.csv'
   ZFRAME_MODEL_NAME = 'ZFrameModel'
   ZFRAME_TEMPLATE_NAME = 'NeedleGuideTemplate'
-  ZFRAME_TEMPLATE_NEEDLE_NAME = 'NeedleGuideTemplate'
+  ZFRAME_TEMPLATE_NEEDLE_NAME = 'NeedleGuideTemplatePath'
 
   @property
   def templateSuccessfulLoaded(self):
@@ -96,6 +96,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
 
   def cleanup(self):
     super(ProstateCryoAblationZFrameRegistrationStepLogic, self).cleanup()
+    self.resetAndInitialize()
 
   @onModuleSelected(ProstateCryoAblationStep.MODULE_NAME)
   def onMrmlSceneCleared(self, caller, event):
@@ -104,6 +105,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   def clearOldNodes(self):
     self.clearOldNodesByName(self.ZFRAME_TEMPLATE_NAME)
     self.clearOldNodesByName(self.ZFRAME_MODEL_NAME)
+    self.clearOldNodesByName(self.ZFRAME_TEMPLATE_NEEDLE_NAME)
 
   def loadZFrameModel(self):
     zFrameModelPath = os.path.join(self.resourcesPath, "zframe", self.ZFRAME_MODEL_PATH)
@@ -151,7 +153,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.templatePathVectors = []
     self.templatePathOrigins = []
 
-    self.checkAndCreatePathModelNode()
     zFrameTemplateModelFile= os.path.join(self.resourcesPath, self.ZFRAME_TEMPLATE_VTK_FILE_NAME)
     _, self.tempModelNode = slicer.util.loadModel(zFrameTemplateModelFile, returnNode=True)
     self.tempModelNode.SetName(self.ZFRAME_TEMPLATE_NAME)
@@ -180,11 +181,6 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     l = row[6]
     p3 = p1 + l * n
     return [p1, p2, p3], n
-
-  def checkAndCreatePathModelNode(self):
-    if self.pathModelNode is None:
-      self.pathModelNode = self.createModelNode(self.ZFRAME_TEMPLATE_NEEDLE_NAME)
-      self.createAndObserveDisplayNode(self.pathModelNode, displayNodeClass=slicer.vtkMRMLModelDisplayNode)
 
   def updateTemplateVectors(self, observee=None, event=None):
     if self.tempModelNode is None:
@@ -310,6 +306,11 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
                                                 self.approveZFrameRegistrationButton]))
     self.layout().addWidget(self.createHLayout([self.backButton]))
     self.layout().addStretch()
+
+
+  def cleanup(self):
+    super(ProstateCryoAblationZFrameRegistrationStep, self).cleanup()
+    self.logic.cleanup()
 
   def onBackButtonClicked(self):
     self.resetZFrameRegistration()
