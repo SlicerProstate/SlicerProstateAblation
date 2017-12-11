@@ -33,12 +33,12 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def cleanup(self):
     self._seriesModel.clear()
     self.trackTargetsButton.enabled = False
-    self.skipIntraopSeriesButton.enabled = False
+    self.measureDistanceButton.enabled = False
     self.updateIntraopSeriesSelectorTable()
 
   def setupIcons(self):
     self.trackIcon = self.createIcon('icon-track.png')
-    self.skipIcon = Icons.skip #self.createIcon('icon-skip.png')
+    self.skipIcon = Icons.skip
 
   def setup(self):
     super(ProstateCryoAblationOverviewStep, self).setup()
@@ -48,8 +48,8 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
     self.trackTargetsButton = self.createButton("", icon=self.trackIcon, iconSize=iconSize, toolTip="Track targets",
                                                 enabled=False)
-    self.skipIntraopSeriesButton = self.createButton("", icon=self.skipIcon, iconSize=iconSize,
-                                                     toolTip="Skip selected series", enabled=False)
+    self.needleTipLocateButton = self.createButton("", icon=self.skipIcon, iconSize=iconSize,
+                                                     toolTip="Measure Target Distance", enabled=False)
     self.setupIntraopSeriesSelector()
     self.layout().addWidget(self.caseManagerPlugin)
     self.addPlugin(self.caseManagerPlugin)
@@ -66,7 +66,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def setupConnections(self):
     super(ProstateCryoAblationOverviewStep, self).setupConnections()
-    self.skipIntraopSeriesButton.clicked.connect(self.onSkipIntraopSeriesButtonClicked)
+    self.needleTipLocateButton.clicked.connect(self.onNeedleTipLocateButtonClicked)
     self.trackTargetsButton.clicked.connect(self.onTrackTargetsButtonClicked)
     self.intraopSeriesSelector.connect('currentIndexChanged(QString)', self.onIntraopSeriesSelectionChanged)
 
@@ -80,9 +80,14 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.session.removeEventObserver(self.session.SeriesTypeManuallyAssignedEvent, self.onSeriesTypeManuallyAssigned)
     self.session.removeEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
 
-  def onSkipIntraopSeriesButtonClicked(self):
-    if slicer.util.confirmYesNoDisplay("Do you really want to skip this series?", windowTitle="Skip series?"):
-      self.updateIntraopSeriesSelectorTable()
+  def onNeedleTipLocateButtonClicked(self):
+    selectedSeries = self.intraopSeriesSelector.currentText
+    if not self.session.seriesTypeManager.isCoverTemplate(selectedSeries):
+      if self.session.zFrameRegistrationSuccessful:
+        callData = str(False)
+        self.session.invokeEvent(self.session.NeedleTipLocateEvent, callData)
+      else:
+        slicer.util.warningDisplay("ZFrame registration was not performed yet, it is required!")
 
   def onTrackTargetsButtonClicked(self):
     self.session.takeActionForCurrentSeries()
@@ -99,7 +104,7 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     trackingPossible = trackingPossible and not self.session.data.completed
     #self.changeSeriesTypeButton.enabled = not self.session.data.exists(selectedSeries) # TODO: take zFrameRegistration into account
     self.trackTargetsButton.enabled = trackingPossible
-    self.skipIntraopSeriesButton.enabled = trackingPossible and self.session.isEligibleForSkipping(selectedSeries)
+    self.needleTipLocateButton.enabled = trackingPossible and self.session.isEligibleForDistanceMeasure(selectedSeries)
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onCurrentSeriesChanged(self, caller, event, callData=None):
@@ -132,7 +137,8 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def onActivation(self):
     super(ProstateCryoAblationOverviewStep, self).onActivation()
     self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
-    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.skipIntraopSeriesButton]))
+    self.layout().addWidget(self.session.targetingPlugin.targetDistanceWidget)
+    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.needleTipLocateButton]))
     self.layout().addStretch()
     self.updateIntraopSeriesSelectorTable()
 

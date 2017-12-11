@@ -91,6 +91,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.session.segmentationEditor.setMasterVolumeNode(self.session.currentSeriesVolume)
     self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
     self.layout().addWidget(self.session.targetingPlugin.fiducialsWidget)
+    self.layout().addWidget(self.session.targetingPlugin.targetDistanceWidget)
     self.layout().addWidget(self.session.segmentationEditor)
     self.addNavigationButtons()
 

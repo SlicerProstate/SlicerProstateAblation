@@ -36,6 +36,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   InitiateZFrameCalibrationEvent = vtk.vtkCommand.UserEvent + 160
   InitiateTargetingEvent = vtk.vtkCommand.UserEvent + 161
+  NeedleTipLocateEvent = vtk.vtkCommand.UserEvent + 162
 
   NeedleGuidanceEvent = vtk.vtkCommand.UserEvent + 164
 
@@ -49,8 +50,8 @@ class ProstateCryoAblationSession(StepBasedSession):
   
   AFFECTEDAREA_NAME = "AffectedArea"
 
-  ISSEEDTYPE = "IsSeedType"
-  ISRODTYPE = "IsRodType"
+  ISSEEDTYPE = "IceSeed"
+  ISRODTYPE = "IceRod"
   
   @property
   def intraopDICOMDirectory(self):
@@ -232,12 +233,14 @@ class ProstateCryoAblationSession(StepBasedSession):
     return not self.directory in [None, '']
   
   
-  def setupFiducialWidget(self):
+  def setupFiducialWidgetAndTableWidget(self):
     self.targetingPlugin.fiducialsWidget.addEventObserver(slicer.vtkMRMLMarkupsNode().MarkupAddedEvent,
-                                     self.updateAffectiveZone)
+                                     self.updateAffectiveZoneAndDistance)
     self.targetingPlugin.fiducialsWidget.addEventObserver(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent,
-                                                          self.updateAffectiveZone)
- 
+                                                          self.updateAffectiveZoneAndDistance)
+    self.targetingPlugin.targetTablePlugin.addEventObserver(self.targetingPlugin.targetTablePlugin.TargetPosUpdatedEvent, self.updateAffectiveZoneAndDistance)
+
+
   def processDirectory(self):
     self.newCaseCreated = getattr(self, "newCaseCreated", False)
     if self.newCaseCreated:
@@ -312,6 +315,8 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.movingTargets = self.data.intraOpTargets
       self.targetingPlugin.targetTablePlugin.currentTargets = self.movingTargets
       self.targetingPlugin.targetTablePlugin.visible = True
+      self.targetingPlugin.calculateTargetsDistance()
+      self.targetingPlugin.targetDistanceWidget.visible = True
       self.setupLoadedTargets()
     self.startIntraopDICOMReceiver()
     
@@ -339,7 +344,7 @@ class ProstateCryoAblationSession(StepBasedSession):
                  
   def setupNeedleAndSegModelNode(self):
     self.clearOldNodesByName(self.NEEDLE_NAME)
-    self.setupFiducialWidget()
+    self.setupFiducialWidgetAndTableWidget()
     self.setupSegmentationWidget()
     if self.needleModelNode is None:
       self.needleModelNode = ModuleLogicMixin.createModelNode(self.NEEDLE_NAME)
@@ -378,6 +383,10 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.segmentationEditor.setMRMLScene(slicer.mrmlScene)
     self.segmentationEditor.setMRMLSegmentEditorNode(self.segmentEditorNode)
     self.segmentationEditorMaskOverWriteCombox.setCurrentIndex(self.segmentationEditorMaskOverWriteCombox.findText('None'))
+
+  def updateAffectiveZoneAndDistance(self, caller = None, event = None):
+    self.updateAffectiveZone()
+    self.targetingPlugin.calculateTargetsDistance()
 
   def onShowAffectiveZoneToggled(self, checked):
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
@@ -733,10 +742,10 @@ class ProstateCryoAblationSession(StepBasedSession):
     else:
       return True
 
-  def isEligibleForSkipping(self, series):
+  def isEligibleForDistanceMeasure(self, series):
     seriesType = self.seriesTypeManager.getSeriesType(series)
     listItems = [str(item) for item in self.getSetting("COVER_PROSTATE") + self.getSetting("COVER_TEMPLATE")]
-    return not self.isAnyListItemInString(seriesType, listItems)
+    return self.isAnyListItemInString(seriesType, listItems)
 
   def isLoading(self):
     self._loading = getattr(self, "_loading", False)
@@ -751,8 +760,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       needleRadius = numpy.array([0,0,0])
       return needleRadius
 
-  def takeActionForCurrentSeries(self):
-    event = None
+  def takeActionForCurrentSeries(self, event = None):
     callData = None
     if self.seriesTypeManager.isCoverTemplate(self.currentSeries):
       event = self.InitiateZFrameCalibrationEvent

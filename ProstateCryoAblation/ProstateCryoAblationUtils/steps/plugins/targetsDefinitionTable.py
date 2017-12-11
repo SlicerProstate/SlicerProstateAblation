@@ -64,7 +64,7 @@ class CheckBoxDelegate(qt.QItemDelegate):
     targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
     self.session.displayForTargets[targetNode.GetNthMarkupID(rowNum)] = qt.Qt.Checked if checkbox.isChecked() else qt.Qt.Unchecked
     model.setData(index, checkbox.isChecked(), qt.Qt.EditRole)
-    self.session.updateAffectiveZone()
+    self.session.updateAffectiveZoneAndDistance()
 
   def clicked(self, checkbox):
     self.commitData.emit(checkbox)
@@ -111,7 +111,7 @@ class ComBoxDelegate(qt.QItemDelegate):
 
         self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)] = comboBox.currentText
         model.setData(index, comboBox.currentText, qt.Qt.EditRole)
-        self.session.updateAffectiveZone()
+        self.session.updateAffectiveZoneAndDistance()
       else:
         storedIndex =  comboBox.findText(self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)])
         comboBox.blockSignals(True)

@@ -51,6 +51,7 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
     if self.logic.GuidanceVolume :
       self.setupFourUpView(self.logic.GuidanceVolume)
       self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
+      self.layout().addWidget(self.session.targetingPlugin.targetDistanceWidget)
       self.addNavigationButtons()
       self.layout().addStretch()
 

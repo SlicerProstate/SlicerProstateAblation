@@ -1,11 +1,13 @@
 import qt
 import vtk
 import slicer
+import numpy
 from ...constants import ProstateCryoAblationConstants as constants
 from ..base import ProstateCryoAblationPlugin
 
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.widgets import TargetCreationWidget
+from SlicerDevelopmentToolboxUtils.icons import Icons
 from targetsDefinitionTable import TargetsDefinitionTable
 
 
@@ -30,9 +32,15 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
     self.fiducialsWidget.addEventObserver(self.fiducialsWidget.StartedEvent, self.onTargetingStarted)
     self.fiducialsWidget.addEventObserver(self.fiducialsWidget.FinishedEvent, self.onTargetingFinished)
     self.fiducialsWidget.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
+    self.targetDistanceWidget = qt.QListWidget()
+    self.targetDistanceWidget.setWindowTitle("Distances Between Targets")
+    #self.showTargetDistanceIcon = self.createIcon('icon-distance.png')
+    #self.showTargetDistanceButton = self.createButton("", enabled=True, icon=self.showTargetDistanceIcon, iconSize=qt.QSize(24, 24),
+    #                                              toolTip="Start placing targets")
     self.targetingGroupBoxLayout.addRow(self.targetTablePlugin)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget)
     self.layout().addWidget(self.targetingGroupBox, 1, 0, 2, 2)
+    self.layout().addWidget(self.targetDistanceWidget)
 
   def onActivation(self):
     super(TargetsDefinitionPlugin, self).onActivation()
@@ -40,7 +48,9 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
     self.fiducialsWidget.currentNode = self.session.movingTargets
     self.targetTablePlugin.visible = True
     self.targetTablePlugin.currentTargets = self.session.movingTargets
+    self.calculateTargetsDistance()
     self.targetingGroupBox.visible = True
+    self.targetDistanceWidget.visible = True
 
   def cleanup(self):
     self.fiducialsWidget.reset()
@@ -64,6 +74,24 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
     for annotation in self.sliceAnnotations:
       annotation.remove()
     self.sliceAnnotations = []
+
+  def calculateTargetsDistance(self):
+    self.targetDistanceWidget.clear()
+    if self.targetTablePlugin.currentTargets is not None:
+      numberOfTargets = self.targetTablePlugin.currentTargets.GetNumberOfFiducials()
+      for targetIndex_A in range(numberOfTargets):
+        for targetIndex_B in range(targetIndex_A+1, numberOfTargets):
+          tAName = self.targetTablePlugin.currentTargets.GetNthFiducialLabel(targetIndex_A)
+          tBName = self.targetTablePlugin.currentTargets.GetNthFiducialLabel(targetIndex_B)
+          posA = 3*[0.0]
+          posB = 3*[0.0]
+          self.targetTablePlugin.currentTargets.GetNthFiducialPosition(targetIndex_A, posA)
+          self.targetTablePlugin.currentTargets.GetNthFiducialPosition(targetIndex_B, posB)
+          dist = numpy.linalg.norm(numpy.array(posA)-numpy.array(posB))/10.0
+          itemString = str(tAName) + " -> " +  str(tBName) + ": " + str(dist) + "cm"
+          tmpWidgetItem = qt.QListWidgetItem(itemString)
+          self.targetDistanceWidget.addItem(tmpWidgetItem)
+    pass
 
   def onFiducialListSelected(self, node):
     if node:
@@ -105,11 +133,12 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
     self.fiducialsWidget.invokeEvent(slicer.vtkMRMLMarkupsNode().MarkupRemovedEvent)
 
   def onTargetingStarted(self, caller, event):
+    self.invokeEvent(self.TargetingStartedEvent)
     self.addSliceAnnotations()
     self.targetTablePlugin.visible = False
     self.targetTablePlugin.disableTargetMovingMode()
+    self.targetDistanceWidget.visible = True
     self.fiducialsWidget.table.visible = True
-    self.invokeEvent(self.TargetingStartedEvent)
 
   def onTargetingFinished(self, caller, event):
     self.removeSliceAnnotations()
@@ -119,6 +148,7 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
       self.fiducialsWidget.table.visible = False
       self.targetTablePlugin.visible = True
       self.targetTablePlugin.currentTargets = self.fiducialsWidget.currentNode
+      self.calculateTargetsDistance()
     else:
       self.session.movingTargets = None
     self.invokeEvent(self.TargetingFinishedEvent)
