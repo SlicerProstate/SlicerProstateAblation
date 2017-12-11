@@ -118,17 +118,28 @@ class SeriesTypeManager(LogicBase):
     except KeyError:
       return self.computeSeriesType(series)
 
+  def checkInSetting(self, series, settingName):
+    seriesType = None
+    if type(self.getSetting(settingName)) is type(tuple()):
+      for keyWord in self.getSetting(settingName):
+        if keyWord in series:
+          seriesType = keyWord
+          break
+    elif type(self.getSetting(settingName)) is type(unicode()):
+      if self.getSetting(settingName) in series:
+        seriesType = self.getSetting(settingName)
+    return seriesType
+
   def computeSeriesType(self, series):
-    if self.getSetting("COVER_PROSTATE") in series:
-      seriesType = self.getSetting("COVER_PROSTATE")
-    elif self.getSetting("COVER_TEMPLATE") in series:
-      seriesType = self.getSetting("COVER_TEMPLATE")
-    elif self.getSetting("NEEDLE_IMAGE") in series:
-      seriesType = self.getSetting("NEEDLE_IMAGE")
-    elif self.getSetting("VIBE_IMAGE") in series:
-      seriesType = self.getSetting("VIBE_IMAGE")
-    else:
-      seriesType = self.getSetting("OTHER_IMAGE")
+    seriesType = self.checkInSetting(series, "OTHER_IMAGE")
+    if self.checkInSetting(series, "COVER_PROSTATE"):
+      seriesType = self.checkInSetting(series, "COVER_PROSTATE")
+    elif self.checkInSetting(series, "COVER_TEMPLATE"):
+      seriesType = self.checkInSetting(series, "COVER_TEMPLATE")
+    elif self.checkInSetting(series, "NEEDLE_IMAGE"):
+      seriesType = self.checkInSetting(series, "NEEDLE_IMAGE")
+    elif self.checkInSetting(series, "VIBE_IMAGE"):
+      seriesType = self.checkInSetting(series, "VIBE_IMAGE")
     return seriesType
 
   def autoAssign(self, series):
@@ -165,7 +176,13 @@ class SeriesTypeManager(LogicBase):
     return (self.isCoverProstate(series) or self.isCoverTemplate(series) or self.isGuidance(series) or self.isVibe(series))
 
   def _hasSeriesType(self, series, seriesType):
+    listItems = [str(item) for item in seriesType]
     if self.assignedSeries.has_key(series):
-      return self.assignedSeries[series] == seriesType
+      for serieName in listItems:
+        if self.assignedSeries[series] == serieName:
+          return True
     else:
-      return seriesType in series
+      for serieName in listItems:
+        if serieName in series:
+          return True
+    return False

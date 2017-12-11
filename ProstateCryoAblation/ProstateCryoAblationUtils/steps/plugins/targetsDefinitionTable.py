@@ -400,19 +400,19 @@ class ZFrameGuidanceComputation(ModuleLogicMixin):
     return start, end
 
 
-class ProstateCryoAblationTargetTableLogic(ProstateCryoAblationLogicBase):
+class TargetsDefinitionTableLogic(ProstateCryoAblationLogicBase):
 
   def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationTargetTableLogic, self).__init__(prostateCryoAblationSession)
+    super(TargetsDefinitionTableLogic, self).__init__(prostateCryoAblationSession)
 
   def setTargetSelected(self, targetNode, selected=False):
     self.markupsLogic.SetAllMarkupsSelected(targetNode, selected)
 
 
-class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
+class TargetsDefinitionTable(ProstateCryoAblationPlugin):
 
   NAME = "TargetTable"
-  LogicClass = ProstateCryoAblationTargetTableLogic
+  LogicClass = TargetsDefinitionTableLogic
 
   TargetPosUpdatedEvent = vtk.vtkCommand.UserEvent + 337
 
@@ -462,7 +462,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
       self.onTargetSelectionChanged()
 
   def __init__(self, prostateCryoAblationSession, **kwargs):
-    super(ProstateCryoAblationTargetTablePlugin, self).__init__(prostateCryoAblationSession)
+    super(TargetsDefinitionTable, self).__init__(prostateCryoAblationSession)
     self.movingEnabled = kwargs.pop("movingEnabled", False)
     self.checkBoxList = dict()
     self.comboBoxList = dict()
@@ -471,7 +471,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.mouseReleaseEventObservers = {}
 
   def setup(self):
-    super(ProstateCryoAblationTargetTablePlugin, self).setup()
+    super(TargetsDefinitionTable, self).setup()
     self.targetTable = qt.QTableView()
     self.targetTableModel = CustomTargetTableModel(self.session)
     self.targetTable.setModel(self.targetTableModel)
@@ -511,7 +511,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
     self.currentTargets = None
 
   def onActivation(self):
-    super(ProstateCryoAblationTargetTablePlugin, self).onActivation()
+    super(TargetsDefinitionTable, self).onActivation()
     self.moveTargetMode = False
     self.currentlyMovedTargetModelIndex = None
     self.connectKeyEventObservers()
@@ -519,7 +519,7 @@ class ProstateCryoAblationTargetTablePlugin(ProstateCryoAblationPlugin):
       self.onTargetSelectionChanged()
 
   def onDeactivation(self):
-    super(ProstateCryoAblationTargetTablePlugin, self).onDeactivation()
+    super(TargetsDefinitionTable, self).onDeactivation()
     self.disableTargetMovingMode()
     self.disconnectKeyEventObservers()
 

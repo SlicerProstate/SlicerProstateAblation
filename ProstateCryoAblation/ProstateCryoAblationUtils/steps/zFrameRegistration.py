@@ -73,9 +73,9 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     super(ProstateCryoAblationZFrameRegistrationStepLogic, self).__init__(prostateCryoAblationSession)
     self.resourcesPath = os.path.join(self.modulePath, "Resources")
     self.setupSliceWidgets()
-    self.resetAndInitializeData()
+    self.resetAndInitialize()
 
-  def resetAndInitializeData(self):
+  def resetAndInitialize(self):
     self.templateVolume = None
 
     self.zFrameModelNode = None
@@ -99,7 +99,7 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
 
   @onModuleSelected(ProstateCryoAblationStep.MODULE_NAME)
   def onMrmlSceneCleared(self, caller, event):
-    self.resetAndInitializeData()
+    self.resetAndInitialize()
 
   def clearOldNodes(self):
     self.clearOldNodesByName(self.ZFRAME_TEMPLATE_NAME)

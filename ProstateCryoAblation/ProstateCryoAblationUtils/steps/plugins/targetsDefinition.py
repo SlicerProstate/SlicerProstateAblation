@@ -6,20 +6,20 @@ from ..base import ProstateCryoAblationPlugin
 
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.widgets import TargetCreationWidget
-from targets import ProstateCryoAblationTargetTablePlugin
+from targetsDefinitionTable import TargetsDefinitionTable
 
 
-class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
+class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
 
   NAME = "Targeting"
   TargetingStartedEvent = vtk.vtkCommand.UserEvent + 335
   TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
 
   def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationTargetingPlugin, self).__init__(prostateCryoAblationSession)
+    super(TargetsDefinitionPlugin, self).__init__(prostateCryoAblationSession)
     
   def setup(self):
-    self.targetTablePlugin = ProstateCryoAblationTargetTablePlugin(self.session, movingEnabled=True)
+    self.targetTablePlugin = TargetsDefinitionTable(self.session, movingEnabled=True)
     self.addPlugin(self.targetTablePlugin)
 
     self.targetingGroupBox = qt.QGroupBox("Target Placement")
@@ -35,7 +35,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.layout().addWidget(self.targetingGroupBox, 1, 0, 2, 2)
 
   def onActivation(self):
-    super(ProstateCryoAblationTargetingPlugin, self).onActivation()
+    super(TargetsDefinitionPlugin, self).onActivation()
     self.fiducialsWidget.table.visible = False
     self.fiducialsWidget.currentNode = self.session.movingTargets
     self.targetTablePlugin.visible = True
@@ -47,7 +47,7 @@ class ProstateCryoAblationTargetingPlugin(ProstateCryoAblationPlugin):
     self.targetTablePlugin.cleanup()
 
   def onDeactivation(self):
-    super(ProstateCryoAblationTargetingPlugin, self).onDeactivation()
+    super(TargetsDefinitionPlugin, self).onDeactivation()
     self.fiducialsWidget.reset()
     self.removeSliceAnnotations()
 

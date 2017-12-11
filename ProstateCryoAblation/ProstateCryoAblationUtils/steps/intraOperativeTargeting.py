@@ -3,7 +3,6 @@ import ast
 import qt
 import slicer
 import vtk
-from ProstateCryoAblationUtils.steps.plugins.targets import ZFrameGuidanceComputation
 from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationLogicBase,ProstateCryoAblationStep
 
 class ProstateCryoAblationTargetingStepLogic(ProstateCryoAblationLogicBase):
@@ -42,7 +41,7 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.layout().addStretch()
 
   def setupTargetingPlugin(self):
-    #self.targetingPlugin = ProstateCryoAblationTargetingPlugin()
+    #self.targetingPlugin = ProstateCryoAblationTargetsDefinitionPlugin()
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingStartedEvent, self.onTargetingStarted)
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
   

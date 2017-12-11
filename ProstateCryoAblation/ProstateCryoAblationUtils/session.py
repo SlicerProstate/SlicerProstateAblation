@@ -4,8 +4,8 @@ import numpy
 import slicer
 from sessionData import SessionData
 from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
-from ProstateCryoAblationUtils.steps.plugins.targeting import ProstateCryoAblationTargetingPlugin
-from ProstateCryoAblationUtils.steps.plugins.targets import ZFrameGuidanceComputation
+from ProstateCryoAblationUtils.steps.plugins.targetsDefinition import TargetsDefinitionPlugin
+from ProstateCryoAblationUtils.steps.plugins.targetsDefinitionTable import ZFrameGuidanceComputation
 from helpers import SeriesTypeManager
 
 from SlicerDevelopmentToolboxUtils.exceptions import DICOMValueError, UnknownSeriesError
@@ -170,7 +170,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.seriesTypeManager = SeriesTypeManager()
     self.seriesTypeManager.addEventObserver(self.seriesTypeManager.SeriesTypeManuallyAssignedEvent,
                                             lambda caller, event: self.invokeEvent(self.SeriesTypeManuallyAssignedEvent))
-    self.targetingPlugin = ProstateCryoAblationTargetingPlugin(self)
+    self.targetingPlugin = TargetsDefinitionPlugin(self)
     self.needlePathCaculator = ZFrameGuidanceComputation(self)
     self.segmentationEditor = slicer.qMRMLSegmentEditorWidget()
     self.resetAndInitializeMembers()
@@ -377,10 +377,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.segmentationEditorMaskOverWriteCombox.setCurrentIndex(self.segmentationEditorMaskOverWriteCombox.findText('None'))
 
   def onShowAffectiveZoneToggled(self, checked):
-    ModuleLogicMixin.setNodeVisibility(self.needleModelNode, checked)
-    ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, checked)
-    ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, checked)
-    ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, checked)
     targetingNode = self.targetingPlugin.targetTablePlugin.currentTargets
     for targetIndex in range(targetingNode.GetNumberOfFiducials()):
       checkboxStatus = qt.Qt.Checked if checked else qt.Qt.Unchecked
@@ -466,6 +462,8 @@ class ProstateCryoAblationSession(StepBasedSession):
 
       self.needleModelNode.SetAndObservePolyData(needleModelAppend.GetOutput())
       self.affectedAreaModelNode.SetAndObservePolyData(affectedBallAreaAppend.GetOutput())
+      ModuleLogicMixin.setNodeVisibility(self.needleModelNode, True)
+      ModuleLogicMixin.setNodeVisibility(self.affectedAreaModelNode, True)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.needleModelNode, True)
       ModuleLogicMixin.setNodeSliceIntersectionVisibility(self.affectedAreaModelNode, True)
     pass 
@@ -733,7 +731,8 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def isEligibleForSkipping(self, series):
     seriesType = self.seriesTypeManager.getSeriesType(series)
-    return not self.isAnyListItemInString(seriesType,[self.getSetting("COVER_PROSTATE"), self.getSetting("COVER_TEMPLATE")])
+    listItems = [str(item) for item in self.getSetting("COVER_PROSTATE") + self.getSetting("COVER_TEMPLATE")]
+    return not self.isAnyListItemInString(seriesType, listItems)
 
   def isLoading(self):
     self._loading = getattr(self, "_loading", False)
@@ -751,15 +750,19 @@ class ProstateCryoAblationSession(StepBasedSession):
   def takeActionForCurrentSeries(self):
     event = None
     callData = None
-    if self.seriesTypeManager.isCoverProstate(self.currentSeries):
-      event = self.InitiateTargetingEvent
-      callData = str(False)
-    elif self.seriesTypeManager.isCoverTemplate(self.currentSeries):
+    if self.seriesTypeManager.isCoverTemplate(self.currentSeries):
       event = self.InitiateZFrameCalibrationEvent
-    elif self.seriesTypeManager.isGuidance(self.currentSeries):
-      event = self.NeedleGuidanceEvent
     else:
-      event = self.NeedleGuidanceEvent
+      if self.zFrameRegistrationSuccessful:
+        if self.seriesTypeManager.isCoverProstate(self.currentSeries):
+          event = self.InitiateTargetingEvent
+          callData = str(False)
+        elif self.seriesTypeManager.isGuidance(self.currentSeries):
+          event = self.NeedleGuidanceEvent
+        else:
+          event = self.NeedleGuidanceEvent
+      else:
+        slicer.util.warningDisplay("ZFrame registration was not performed yet, it is required!")
     if event:
       self.invokeEvent(event, callData)
     else:
