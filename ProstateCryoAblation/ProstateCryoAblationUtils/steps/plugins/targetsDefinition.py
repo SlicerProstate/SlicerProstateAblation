@@ -39,22 +39,28 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
     #                                              toolTip="Start placing targets")
     self.targetingGroupBoxLayout.addRow(self.targetTablePlugin)
     self.targetingGroupBoxLayout.addRow(self.fiducialsWidget)
+    self.targetingGroupBoxLayout.addRow(self.targetDistanceWidget)
     self.layout().addWidget(self.targetingGroupBox, 1, 0, 2, 2)
-    self.layout().addWidget(self.targetDistanceWidget)
+    #self.layout().addWidget(self.targetDistanceWidget)
 
   def onActivation(self):
     super(TargetsDefinitionPlugin, self).onActivation()
     self.fiducialsWidget.table.visible = False
-    self.fiducialsWidget.currentNode = self.session.movingTargets
     self.targetTablePlugin.visible = True
-    self.targetTablePlugin.currentTargets = self.session.movingTargets
-    self.calculateTargetsDistance()
     self.targetingGroupBox.visible = True
     self.targetDistanceWidget.visible = True
+    targetsNode = self.session.movingTargets
+    if targetsNode is None:
+      targetsNode = self.fiducialsWidget.getOrCreateFiducialNode()
+      targetsNode.SetName(self.fiducialsWidget.DEFAULT_FIDUCIAL_LIST_NAME)
+    self.fiducialsWidget.currentNode = targetsNode
+    self.targetTablePlugin.currentTargets = targetsNode    
+    self.calculateTargetsDistance()    
 
   def cleanup(self):
     self.fiducialsWidget.reset()
     self.targetTablePlugin.cleanup()
+    self.targetDistanceWidget.clear()
 
   def onDeactivation(self):
     super(TargetsDefinitionPlugin, self).onDeactivation()
@@ -88,7 +94,7 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
           self.targetTablePlugin.currentTargets.GetNthFiducialPosition(targetIndex_A, posA)
           self.targetTablePlugin.currentTargets.GetNthFiducialPosition(targetIndex_B, posB)
           dist = numpy.linalg.norm(numpy.array(posA)-numpy.array(posB))/10.0
-          itemString = str(tAName) + " -> " +  str(tBName) + ": " + str(dist) + "cm"
+          itemString = str(tAName) + " -> " +  str(tBName) + ": " + '%3.1f' % dist + " cm"
           tmpWidgetItem = qt.QListWidgetItem(itemString)
           self.targetDistanceWidget.addItem(tmpWidgetItem)
     pass

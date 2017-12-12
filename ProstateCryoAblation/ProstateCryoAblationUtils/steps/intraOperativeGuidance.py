@@ -50,11 +50,13 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
     self.layoutManager.setLayout(ProstateCryoAblationConstants.LAYOUT_FOUR_UP)
     if self.logic.GuidanceVolume :
       self.setupFourUpView(self.logic.GuidanceVolume)
-      self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
-      self.layout().addWidget(self.session.targetingPlugin.targetDistanceWidget)
+      self.layout().addWidget(self.session.targetingPlugin.targetingGroupBox)
+      self.session.targetingPlugin.targetingGroupBox.visible = True
+      self.session.targetingPlugin.fiducialsWidget.visible = False
+      self.session.targetingPlugin.targetTablePlugin.visible = True
+      self.session.targetingPlugin.targetDistanceWidget.visible = True
       self.addNavigationButtons()
       self.layout().addStretch()
-
 
   def onDeactivation(self):
     super(ProstateCryoAblationGuidanceStep, self).onDeactivation()

@@ -87,12 +87,15 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
       return
     self.updateAvailableLayouts()
     self.setupFourUpView(self.session.currentSeriesVolume)
-    self.session.segmentationEditor.setSegmentationNode(self.session.segmentModelNode)
+    self.session.segmentationEditor.setSegmentationNode(self.session.data.segmentModelNode)
     self.session.segmentationEditor.setMasterVolumeNode(self.session.currentSeriesVolume)
-    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
-    self.layout().addWidget(self.session.targetingPlugin.fiducialsWidget)
-    self.layout().addWidget(self.session.targetingPlugin.targetDistanceWidget)
-    self.layout().addWidget(self.session.segmentationEditor)
+    self.tabWidget = qt.QTabWidget()
+    self.layout().addWidget(self.tabWidget)
+    self.session.targetingPlugin.targetingGroupBox.visible = True
+    self.session.targetingPlugin.fiducialsWidget.visible = True
+    self.session.targetingPlugin.fiducialsWidget.table.visible = False
+    self.tabWidget.addTab(self.session.targetingPlugin.targetingGroupBox, "")
+    self.tabWidget.addTab(self.session.segmentationEditor, "")
     self.addNavigationButtons()
 
   def updateAvailableLayouts(self):

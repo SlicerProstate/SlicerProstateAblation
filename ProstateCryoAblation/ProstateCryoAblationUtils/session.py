@@ -202,7 +202,6 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.segmentationEditorShow3DButton = None
     self.segmentationEditorMaskOverWriteCombox = None
     self.segmentEditorNode = None
-    self.segmentModelNode = None
     self.setupNeedleAndSegModelNode()
 
   def initializeColorNodes(self):
@@ -214,11 +213,14 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def clearData(self):
     slicer.mrmlScene.Clear(0)
-    for step in self.steps:
-      step.cleanup()
     self.resetAndInitializeMembers()
     self.resetAndInitializedTargetsAndSegments()
-
+    self.resetSteps()
+  
+  def resetSteps(self):
+    for step in self.steps:
+      step.cleanup()
+      
   def onMrmlSceneCleared(self, caller, event):
     self.initializeColorNodes()
 
@@ -254,8 +256,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def createNewCase(self, destination):
     self.newCaseCreated = True
-    self.resetAndInitializeMembers()
-    self.resetAndInitializedTargetsAndSegments()
+    self.clearData()
     self.directory = destination
     self.createDirectory(self.intraopDICOMDirectory)
     self.createDirectory(self.outputDirectory)
@@ -274,8 +275,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       message = "Case data has been saved successfully." if success else \
         "The following data failed to saved:\n %s" % failedFileNames
     self.invokeEvent(self.CloseCaseEvent, str(message))
-    self.resetAndInitializeMembers()
-    self.resetAndInitializedTargetsAndSegments()
+    self.clearData()
 
   def save(self):
     self.data.savedNeedleTypeForTargets = self.needleTypeForTargets.copy()
@@ -363,17 +363,17 @@ class ProstateCryoAblationSession(StepBasedSession):
       self.affectedAreaModelNode.GetDisplayNode().SetOpacity(0.5)
       self.affectedAreaModelNode.GetDisplayNode().SetColor(0.0,1.0,0.0)
       
-    if self.segmentModelNode is None:
+    if self.data.segmentModelNode is None:
       # Create segmentation
-      self.segmentModelNode = slicer.vtkMRMLSegmentationNode()
-      slicer.mrmlScene.AddNode(self.segmentModelNode)
-      self.segmentModelNode.CreateDefaultDisplayNodes()  # only needed for display
-      self.segmentModelNode.CreateDefaultStorageNode()
-      self.segmentModelNode.SetName("IntraOpSegmentation")
-    if (self.segmentModelNode.GetScene() is None) or (not self.segmentModelNode.GetScene() == slicer.mrmlScene):
-      slicer.mrmlScene.AddNode(self.segmentModelNode) 
-    if self.segmentModelNode.GetDisplayNode() is None:
-      ModuleLogicMixin.createAndObserveDisplayNode(self.segmentModelNode,
+      self.data.segmentModelNode = slicer.vtkMRMLSegmentationNode()
+      slicer.mrmlScene.AddNode(self.data.segmentModelNode)
+      self.data.segmentModelNode.CreateDefaultDisplayNodes()  # only needed for display
+      self.data.segmentModelNode.CreateDefaultStorageNode()
+      self.data.segmentModelNode.SetName("IntraOpSegmentation")
+    if (self.data.segmentModelNode.GetScene() is None) or (not self.data.segmentModelNode.GetScene() == slicer.mrmlScene):
+      slicer.mrmlScene.AddNode(self.data.segmentModelNode) 
+    if self.data.segmentModelNode.GetDisplayNode() is None:
+      ModuleLogicMixin.createAndObserveDisplayNode(self.data.segmentModelNode,
                                                    displayNodeClass=slicer.vtkMRMLSegmentationDisplayNode)
     if self.segmentEditorNode is None:
       self.segmentEditorNode = slicer.vtkMRMLSegmentEditorNode()
@@ -396,7 +396,6 @@ class ProstateCryoAblationSession(StepBasedSession):
         self.displayForTargets[targetingNode.GetNthMarkupID(targetIndex)] = checkboxStatus
         if self.targetingPlugin.targetTablePlugin.checkBoxList.get(targetingNode.GetNthMarkupID(targetIndex)):
           self.targetingPlugin.targetTablePlugin.checkBoxList[targetingNode.GetNthMarkupID(targetIndex)].setChecked(checkboxStatus)
-        #self.targetingPlugin.
       self.updateAffectiveZone()
       if not self.segmentationEditorShow3DButton.isChecked() == checked:
         self.segmentationEditorShow3DButton.checked = checked

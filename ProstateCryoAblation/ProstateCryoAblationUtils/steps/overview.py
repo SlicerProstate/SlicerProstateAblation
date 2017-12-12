@@ -31,9 +31,9 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.notifyUserAboutNewData = True
     
   def cleanup(self):
+    super(ProstateCryoAblationOverviewStep, self).cleanup()
     self._seriesModel.clear()
     self.trackTargetsButton.enabled = False
-    self.measureDistanceButton.enabled = False
     self.updateIntraopSeriesSelectorTable()
 
   def setupIcons(self):
@@ -136,8 +136,11 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
 
   def onActivation(self):
     super(ProstateCryoAblationOverviewStep, self).onActivation()
-    self.layout().addWidget(self.session.targetingPlugin.targetTablePlugin)
-    self.layout().addWidget(self.session.targetingPlugin.targetDistanceWidget)
+    self.layout().addWidget(self.session.targetingPlugin.targetingGroupBox)
+    self.session.targetingPlugin.targetingGroupBox.visible = True
+    self.session.targetingPlugin.fiducialsWidget.visible = False
+    self.session.targetingPlugin.targetTablePlugin.visible = True
+    self.session.targetingPlugin.targetDistanceWidget.visible = True
     self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.needleTipLocateButton]))
     self.layout().addStretch()
     self.updateIntraopSeriesSelectorTable()
