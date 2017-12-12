@@ -137,6 +137,15 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
   def onCaseOpened(self, caller, event):
     self.update()
 
+  @staticmethod
+  def truncatePath(path):
+    try:
+      split = path.split('/')
+      path = '.../' + split[-2] + '/' + split[-1]
+    except (IndexError, AttributeError):
+      pass
+    return path
+
   def update(self):
     self.updateCaseButtons()
     self.updateCaseWatchBox()

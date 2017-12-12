@@ -79,15 +79,10 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
       self.session.registerStep(registeredStep)
     
     self.customStatusProgressBar = CustomStatusProgressbar()
-    self.setupIcons()
     self.setupPatientWatchBox()
     self.setupViewSettingGroupBox()
     self.setupTabBarNavigation()
     self.setupSessionObservers()
-
-  def setupIcons(self):
-    self.settingsIcon = Icons.settings
-    self.textInfoIcon = Icons.text_info
 
   def setupPatientWatchBox(self):
     WatchBoxAttribute.TRUNCATE_LENGTH = 20

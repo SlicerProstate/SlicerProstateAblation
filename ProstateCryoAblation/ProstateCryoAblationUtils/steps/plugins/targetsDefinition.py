@@ -49,7 +49,7 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
     self.targetTablePlugin.visible = True
     self.targetingGroupBox.visible = True
     self.targetDistanceWidget.visible = True
-    targetsNode = self.session.movingTargets
+    targetsNode = self.session.data.intraOpTargets
     if targetsNode is None:
       targetsNode = self.fiducialsWidget.getOrCreateFiducialNode()
       targetsNode.SetName(self.fiducialsWidget.DEFAULT_FIDUCIAL_LIST_NAME)
@@ -149,12 +149,12 @@ class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
   def onTargetingFinished(self, caller, event):
     self.removeSliceAnnotations()
     if self.fiducialsWidget.hasTargetListAtLeastOneTarget():
-      self.session.movingTargets = self.fiducialsWidget.currentNode
+      self.session.data.intraOpTargets = self.fiducialsWidget.currentNode
       self.session.setupLoadedTargets()
       self.fiducialsWidget.table.visible = False
       self.targetTablePlugin.visible = True
       self.targetTablePlugin.currentTargets = self.fiducialsWidget.currentNode
       self.calculateTargetsDistance()
     else:
-      self.session.movingTargets = None
+      self.session.data.intraOpTargets = None
     self.invokeEvent(self.TargetingFinishedEvent)

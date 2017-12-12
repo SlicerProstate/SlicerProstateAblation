@@ -29,6 +29,9 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   def __init__(self, prostateCryoAblationSession):
     super(ProstateCryoAblationOverviewStep, self).__init__(prostateCryoAblationSession)
     self.notifyUserAboutNewData = True
+    self.horizontalBox = qt.QGroupBox()
+    self.horizontalLayout = qt.QHBoxLayout()
+    self.horizontalBox.setLayout(self.horizontalLayout)
     
   def cleanup(self):
     super(ProstateCryoAblationOverviewStep, self).cleanup()
@@ -141,8 +144,10 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.session.targetingPlugin.fiducialsWidget.visible = False
     self.session.targetingPlugin.targetTablePlugin.visible = True
     self.session.targetingPlugin.targetDistanceWidget.visible = True
-    self.layout().addWidget(self.createHLayout([self.intraopSeriesSelector, self.trackTargetsButton, self.needleTipLocateButton]))
-    self.layout().addStretch()
+    self.horizontalLayout.addWidget(self.intraopSeriesSelector)
+    self.horizontalLayout.addWidget(self.trackTargetsButton)
+    self.horizontalLayout.addWidget(self.needleTipLocateButton)
+    self.layout().addWidget(self.horizontalBox)
     self.updateIntraopSeriesSelectorTable()
 
   def onSeriesTypeManuallyAssigned(self, caller, event):

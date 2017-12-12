@@ -5,39 +5,53 @@ from constants import ProstateCryoAblationConstants
 
 class ConfigurationParser(ModuleWidgetMixin):
 
+  SEPERATOR = ", "
+
   def __init__(self, configFile):
     self.moduleName = ProstateCryoAblationConstants.MODULE_NAME
     self.configFile = configFile
     self.loadConfiguration()
 
-  def setListSetting(self, key, stringValue):
-    listSeries = stringValue.split(', ')
-    self.setSetting(key, listSeries)
+  def setTupleSetting(self, key, stringValue):
+    valueList = stringValue.split(self.SEPERATOR)
+    self.setSetting(key, valueList)
+
+  def getTupleSetting(self, key):
+    stringValue = self.getSetting(key)
+    if type(stringValue) == type(tuple()):
+      return stringValue
+    elif type(stringValue) == type(str()):
+      return tuple(stringValue.split(self.SEPERATOR))
+    return None
+
+  def convertToTuple(self, stringValue):
+    return tuple(stringValue.split(self.SEPERATOR))
 
   def loadConfiguration(self):
     self.config = ConfigParser.RawConfigParser()
     self.config.read(self.configFile)
     if not self.getSetting("ZFrame_Registration_Class_Name"):
-      self.setListSetting("ZFrame_Registration_Class_Name", self.config.get('ZFrame Registration', 'class'))
-    if not self.getSetting("COVER_PROSTATE") or \
-      (not self.config.get('Series Descriptions', 'COVER_PROSTATE') == self.getSetting("COVER_PROSTATE")):
-      self.setListSetting("COVER_PROSTATE", self.config.get('Series Descriptions', 'COVER_PROSTATE'))
-    if not self.getSetting("COVER_TEMPLATE") or \
-      (not self.config.get('Series Descriptions', 'COVER_TEMPLATE') == self.getSetting("COVER_TEMPLATE")):
-      self.setListSetting("COVER_TEMPLATE", self.config.get('Series Descriptions', 'COVER_TEMPLATE'))
-    if not self.getSetting("NEEDLE_IMAGE") or \
-      (not self.config.get('Series Descriptions', 'NEEDLE_IMAGE') == self.getSetting("NEEDLE_IMAGE")):
-      self.setListSetting("NEEDLE_IMAGE", self.config.get('Series Descriptions', 'NEEDLE_IMAGE'))
-    if not self.getSetting("VIBE_IMAGE") or \
-      (not self.config.get('Series Descriptions', 'VIBE_IMAGE') == self.getSetting("VIBE_IMAGE")):
-      self.setListSetting("VIBE_IMAGE", self.config.get('Series Descriptions', 'VIBE_IMAGE'))
-    if not self.getSetting("OTHER_IMAGE") or \
-      (not self.config.get('Series Descriptions', 'OTHER_IMAGE') == self.getSetting("OTHER_IMAGE")):
-      self.setListSetting("OTHER_IMAGE", self.config.get('Series Descriptions', 'OTHER_IMAGE'))
+      self.setSetting("ZFrame_Registration_Class_Name", self.config.get('ZFrame Registration', 'class'))
+    if not self.getTupleSetting("COVER_PROSTATE") or \
+      (not self.convertToTuple(self.config.get('Series Descriptions', 'COVER_PROSTATE')) == self.getTupleSetting("COVER_PROSTATE")):
+      self.setTupleSetting("COVER_PROSTATE", self.config.get('Series Descriptions', 'COVER_PROSTATE'))
+    if not self.getTupleSetting("COVER_TEMPLATE") or \
+      (not self.convertToTuple(self.config.get('Series Descriptions', 'COVER_TEMPLATE')) == self.getTupleSetting("COVER_TEMPLATE")):
+      self.setTupleSetting("COVER_TEMPLATE", self.config.get('Series Descriptions', 'COVER_TEMPLATE'))
+    if not self.getTupleSetting("NEEDLE_IMAGE") or \
+      (not self.convertToTuple(self.config.get('Series Descriptions', 'NEEDLE_IMAGE')) == self.getTupleSetting("NEEDLE_IMAGE")):
+      self.setTupleSetting("NEEDLE_IMAGE", self.config.get('Series Descriptions', 'NEEDLE_IMAGE'))
+    if not self.getTupleSetting("VIBE_IMAGE") or \
+      (not self.convertToTuple(self.config.get('Series Descriptions', 'VIBE_IMAGE')) == self.getTupleSetting("VIBE_IMAGE")):
+      self.setTupleSetting("VIBE_IMAGE", self.config.get('Series Descriptions', 'VIBE_IMAGE'))
+    if not self.getTupleSetting("OTHER_IMAGE") or \
+      (not self.convertToTuple(self.config.get('Series Descriptions', 'OTHER_IMAGE')) == self.getTupleSetting("OTHER_IMAGE")):
+      self.setTupleSetting("OTHER_IMAGE", self.config.get('Series Descriptions', 'OTHER_IMAGE'))
 
-    if not self.getSetting("SERIES_TYPES"):
-      seriesTypes = [self.config.get('Series Descriptions',x) for x in ['COVER_TEMPLATE', 'COVER_PROSTATE','NEEDLE_IMAGE','VIBE_IMAGE', 'OTHER_IMAGE']]
-      self.setSetting("SERIES_TYPES", seriesTypes)
+    tupleList = tuple()
+    for x in ['COVER_TEMPLATE', 'COVER_PROSTATE', 'NEEDLE_IMAGE']:
+      tupleList += self.convertToTuple(self.config.get('Series Descriptions', x))
+    self.setSetting("SERIES_TYPES", tupleList)
 
     colorFileName = self.config.get('Color File', 'FileName')
     colorFileFullName = os.path.join(os.path.dirname(inspect.getfile(self.__class__)),

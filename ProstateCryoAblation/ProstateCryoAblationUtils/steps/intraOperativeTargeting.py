@@ -29,10 +29,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def __init__(self, prostateCryoAblationSession):
     super(ProstateCryoAblationTargetingStep, self).__init__(prostateCryoAblationSession)
     self._NeedleType = self.ICESEED
-    self.resetAndInitialize()
-  
-  def resetAndInitialize(self):
-    self.session.retryMode = False
+    self.tabWidget = qt.QTabWidget()
+    self.layout().addWidget(self.tabWidget)
 
   def setup(self):
     super(ProstateCryoAblationTargetingStep, self).setup()
@@ -46,8 +44,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
   
   def onBackButtonClicked(self):
-    if self.session.retryMode:
-      self.session.retryMode = False
     if self.session.previousStep:
       self.session.previousStep.active = True
 
@@ -62,35 +58,14 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.backButton.clicked.connect(self.onBackButtonClicked)
     self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
 
-  @vtk.calldata_type(vtk.VTK_STRING)
-  def onInitiateTargeting(self, caller, event, callData):
-    self._initiateTargeting(ast.literal_eval(callData))
-
-  def _initiateTargeting(self, retryMode=False):
-    self.resetAndInitialize()
-    self.session.retryMode = retryMode
-    if self.session.seriesTypeManager.isCoverProstate(self.session.currentSeries):
-      self.session.movingVolume = self.session.currentSeriesVolume
-    else:
-      self.loadLatestCoverProstateResultData()
-    self.active = True
-
-  def loadInitialData(self):
-    self.session.movingLabel = self.session.data.initialLabel
-    self.session.movingVolume = self.session.data.initialVolume
-    self.session.movingTargets = self.session.data.intraOpTargets
-
   def onActivation(self):
     super(ProstateCryoAblationTargetingStep, self).onActivation()
-    self.session.fixedVolume = self.session.currentSeriesVolume
-    if not self.session.fixedVolume:
+    if not self.session.currentSeriesVolume:
       return
     self.updateAvailableLayouts()
     self.setupFourUpView(self.session.currentSeriesVolume)
     self.session.segmentationEditor.setSegmentationNode(self.session.data.segmentModelNode)
     self.session.segmentationEditor.setMasterVolumeNode(self.session.currentSeriesVolume)
-    self.tabWidget = qt.QTabWidget()
-    self.layout().addWidget(self.tabWidget)
     self.session.targetingPlugin.targetingGroupBox.visible = True
     self.session.targetingPlugin.fiducialsWidget.visible = True
     self.session.targetingPlugin.fiducialsWidget.table.visible = False
@@ -104,16 +79,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def onDeactivation(self):
     super(ProstateCryoAblationTargetingStep, self).onDeactivation()
 
-
-  def loadLatestCoverProstateResultData(self):
-    coverProstate = self.session.data.getMostRecentApprovedCoverProstateRegistration()
-    if coverProstate:
-      self.session.movingVolume = coverProstate.volumes.fixed
-      self.session.movingLabel = coverProstate.labels.fixed
-      self.session.movingTargets = coverProstate.targets.approved
-      return True
-    return False
-
   def addSessionObservers(self):
     super(ProstateCryoAblationTargetingStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.InitiateTargetingEvent, self.onInitiateTargeting)
@@ -122,6 +87,8 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     super(ProstateCryoAblationTargetingStep, self).removeSessionEventObservers()
     self.session.removeEventObserver(self.session.InitiateTargetingEvent, self.onInitiateTargeting)
 
+  def onInitiateTargeting(self, caller, event):
+    self.active = True
 
   @vtk.calldata_type(vtk.VTK_STRING)
   def onNewImageSeriesReceived(self, caller, event, callData):
@@ -136,7 +103,6 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
                                                   % self.getSetting("COVER_PROSTATE")):
             return
           self.session.currentSeries = series
-          self._initiateTargeting()
           self.onActivation()
           return
 

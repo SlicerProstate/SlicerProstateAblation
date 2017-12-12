@@ -108,66 +108,8 @@ class ProstateCryoAblationSession(StepBasedSession):
     else:
       return self.getOrCreateVolumeForSeries(self.currentSeries)
 
-  @property
-  def movingVolume(self):
-    self._movingVolume = getattr(self, "_movingVolume", None)
-    return self._movingVolume
-
-  @movingVolume.setter
-  def movingVolume(self, value):
-    self._movingVolume = value
-
-  @property
-  def movingLabel(self):
-    self._movingLabel = getattr(self, "_movingLabel", None)
-    return self._movingLabel
-
-  @movingLabel.setter
-  def movingLabel(self, value):
-    self._movingLabel = value
-
-  @property
-  def movingTargets(self):
-    self._movingTargets = getattr(self, "_movingTargets", None)
-    if self.isCurrentSeriesCoverProstate():
-      return self.data.intraOpTargets
-    return self._movingTargets
-
-  @movingTargets.setter
-  def movingTargets(self, value):
-    if self.isCurrentSeriesCoverProstate():
-      self.data.intraOpTargets = value
-    self._movingTargets = value
-    
-  @property
-  def fixedVolume(self):
-    self._fixedVolume = getattr(self, "_fixedVolume", None)
-    if self.isCurrentSeriesCoverProstate():
-      return self.data.initialVolume
-    return self._fixedVolume
-
-  @fixedVolume.setter
-  def fixedVolume(self, value):
-    if self.isCurrentSeriesCoverProstate():
-      self.data.initialVolume = value
-    self._fixedVolume = value
-
-  @property
-  def fixedLabel(self):
-    self._fixedLabel = getattr(self, "_fixedLabel", None)
-    if self.isCurrentSeriesCoverProstate():
-      return self.data.initialLabel
-    return self._fixedLabel
-
-  @fixedLabel.setter
-  def fixedLabel(self, value):
-    if self.isCurrentSeriesCoverProstate():
-      self.data.initialLabel = value
-    self._fixedLabel = value
-
   def __init__(self):
     StepBasedSession.__init__(self)
-    #self.registrationLogic = ProstateCryoAblationZFrameRegistrationStepLogic()
     self.seriesTypeManager = SeriesTypeManager()
     self.seriesTypeManager.addEventObserver(self.seriesTypeManager.SeriesTypeManuallyAssignedEvent,
                                             lambda caller, event: self.invokeEvent(self.SeriesTypeManuallyAssignedEvent))
@@ -312,8 +254,7 @@ class ProstateCryoAblationSession(StepBasedSession):
       for fiducialIndex in range(self.data.intraOpTargets.GetNumberOfFiducials()):
         self.displayForTargets[self.data.intraOpTargets.GetNthMarkupID(fiducialIndex)] = qt.Qt.Unchecked
       self.needleTypeForTargets = self.data.savedNeedleTypeForTargets.copy()
-      self.movingTargets = self.data.intraOpTargets
-      self.targetingPlugin.targetTablePlugin.currentTargets = self.movingTargets
+      self.targetingPlugin.targetTablePlugin.currentTargets = self.data.intraOpTargets
       self.targetingPlugin.targetTablePlugin.visible = True
       self.targetingPlugin.calculateTargetsDistance()
       self.targetingPlugin.targetDistanceWidget.visible = True
@@ -716,24 +657,6 @@ class ProstateCryoAblationSession(StepBasedSession):
           self.segmentationPath = segmentationPath
           break
 
-  def loadT2Label(self):
-    if self.data.initialLabel:
-      return True
-    mostRecentFilename = self.getMostRecentLesionSegmentation(self.segmentationPath)
-    success = False
-    if mostRecentFilename:
-      filename = os.path.join(self.segmentationPath, mostRecentFilename)
-      success, self.data.initialLabel = slicer.util.loadLabelVolume(filename, returnNode=True)
-      if success:
-        self.data.initialLabel.SetName('t2-label')
-    return success
-
-  def getMostRecentLesionSegmentation(self, path):
-    return self.getMostRecentFile(path, FileExtension.NRRD, filter="Lesion")
-
-  def getMostRecentTargetsFile(self, path):
-    return self.getMostRecentFile(path, FileExtension.FCSV)
-
   def isTrackingPossible(self, series):
     if self.data.completed:
       logging.debug("No tracking possible. Case has been marked as completed!")
@@ -743,7 +666,7 @@ class ProstateCryoAblationSession(StepBasedSession):
 
   def isEligibleForDistanceMeasure(self, series):
     seriesType = self.seriesTypeManager.getSeriesType(series)
-    listItems = [str(item) for item in self.getSetting("COVER_PROSTATE") + self.getSetting("COVER_TEMPLATE")]
+    listItems = [str(item) for item in self.getSetting("COVER_PROSTATE") + self.getSetting("COVER_TEMPLATE") + self.getSetting("VIBE_IMAGE")]
     return self.isAnyListItemInString(seriesType, listItems)
 
   def isLoading(self):
@@ -767,7 +690,6 @@ class ProstateCryoAblationSession(StepBasedSession):
       if self.zFrameRegistrationSuccessful:
         if self.seriesTypeManager.isCoverProstate(self.currentSeries):
           event = self.InitiateTargetingEvent
-          callData = str(False)
         elif self.seriesTypeManager.isGuidance(self.currentSeries):
           event = self.NeedleGuidanceEvent
         else:
@@ -785,6 +707,3 @@ class ProstateCryoAblationSession(StepBasedSession):
       for key, value in kwargs.iteritems():
         if hasattr(self.progress, key):
           setattr(self.progress, key, value)
-
-  def skip(self, series):
-    self.save()
