@@ -3,27 +3,27 @@ import ast
 import qt
 import slicer
 import vtk
-from ..constants import ProstateCryoAblationConstants
-from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationLogicBase,ProstateCryoAblationStep
+from ..constants import ProstateAblationConstants
+from ProstateAblationUtils.steps.base import ProstateAblationLogicBase,ProstateAblationStep
 
-class ProstateCryoAblationGuidanceStepLogic(ProstateCryoAblationLogicBase): # make it the same as overview for now
+class ProstateAblationGuidanceStepLogic(ProstateAblationLogicBase): # make it the same as overview for now
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationGuidanceStepLogic, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationGuidanceStepLogic, self).__init__(ProstateAblationSession)
     self.GuidanceVolume = None
 
 
-class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
+class ProstateAblationGuidanceStep(ProstateAblationStep):
 
   NAME = "Guidance"
-  LogicClass = ProstateCryoAblationGuidanceStepLogic
+  LogicClass = ProstateAblationGuidanceStepLogic
   LayoutClass = qt.QVBoxLayout
-  def __init__(self, prostateCryoAblationSession):
+  def __init__(self, ProstateAblationSession):
     self.notifyUserAboutNewData = True
-    super(ProstateCryoAblationGuidanceStep, self).__init__(prostateCryoAblationSession)
+    super(ProstateAblationGuidanceStep, self).__init__(ProstateAblationSession)
 
   def setup(self):
-    super(ProstateCryoAblationGuidanceStep, self).setup()
+    super(ProstateAblationGuidanceStep, self).setup()
 
   def onBackButtonClicked(self):
     if self.session.previousStep:
@@ -33,21 +33,21 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
     self.session.previousStep.active = True
 
   def setupConnections(self):
-    super(ProstateCryoAblationGuidanceStep, self).setupConnections()
+    super(ProstateAblationGuidanceStep, self).setupConnections()
     self.backButton.clicked.connect(self.onBackButtonClicked)
     self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
 
   def addSessionObservers(self):
-    super(ProstateCryoAblationGuidanceStep, self).addSessionObservers()
+    super(ProstateAblationGuidanceStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.NeedleGuidanceEvent, self.onNeedleGuidance)
 
   def removeSessionEventObservers(self):
-    ProstateCryoAblationStep.removeSessionEventObservers(self)
+    ProstateAblationStep.removeSessionEventObservers(self)
     self.session.removeEventObserver(self.session.NeedleGuidanceEvent, self.onNeedleGuidance)
 
   def onActivation(self):
-    super(ProstateCryoAblationGuidanceStep, self).onActivation()
-    self.layoutManager.setLayout(ProstateCryoAblationConstants.LAYOUT_FOUR_UP)
+    super(ProstateAblationGuidanceStep, self).onActivation()
+    self.layoutManager.setLayout(ProstateAblationConstants.LAYOUT_FOUR_UP)
     if self.logic.GuidanceVolume :
       self.setupFourUpView(self.logic.GuidanceVolume)
       self.layout().addWidget(self.session.targetingPlugin.targetingGroupBox)
@@ -59,7 +59,7 @@ class ProstateCryoAblationGuidanceStep(ProstateCryoAblationStep):
       self.layout().addStretch()
 
   def onDeactivation(self):
-    super(ProstateCryoAblationGuidanceStep, self).onDeactivation()
+    super(ProstateAblationGuidanceStep, self).onDeactivation()
     self.logic.GuidanceVolume = None
 
   def onNeedleGuidance(self, caller, event):

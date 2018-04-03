@@ -3,9 +3,9 @@ import vtk, ctk, ast, qt
 import numpy
 import slicer
 from sessionData import SessionData
-from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
-from ProstateCryoAblationUtils.steps.plugins.targetsDefinition import TargetsDefinitionPlugin
-from ProstateCryoAblationUtils.steps.plugins.targetsDefinitionTable import ZFrameGuidanceComputation
+from ProstateAblationUtils.constants import ProstateAblationConstants as constants
+from ProstateAblationUtils.steps.plugins.targetsDefinition import TargetsDefinitionPlugin
+from ProstateAblationUtils.steps.plugins.targetsDefinitionTable import ZFrameGuidanceComputation
 from helpers import SeriesTypeManager
 
 from SlicerDevelopmentToolboxUtils.exceptions import DICOMValueError, UnknownSeriesError
@@ -19,7 +19,7 @@ from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse, onR
 from SlicerDevelopmentToolboxUtils.module.session import StepBasedSession
 
 @singleton
-class ProstateCryoAblationSession(StepBasedSession):
+class ProstateAblationSession(StepBasedSession):
 
   IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.SkippedEvent
   IncomingIntraopDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent + 111
@@ -60,7 +60,7 @@ class ProstateCryoAblationSession(StepBasedSession):
   @property
   def outputDirectory(self):
     # was outputDir
-    return os.path.join(self.directory, "ProstateCryoAblationOutputs")
+    return os.path.join(self.directory, "ProstateAblationOutputs")
 
   @property
   def approvedCoverTemplate(self):
@@ -150,7 +150,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     self.segmentedColorName = self.getSetting("Segmentation_Color_Name")
     
   def __del__(self):
-    super(ProstateCryoAblationSession, self).__del__()
+    super(ProstateAblationSession, self).__del__()
     self.clearData()
 
   def clearData(self):
@@ -190,7 +190,7 @@ class ProstateCryoAblationSession(StepBasedSession):
     if self.newCaseCreated:
       return
     if not self.directory or not self.isCaseDirectoryValid():
-      slicer.util.warningDisplay("The selected case directory seems not to be valid", windowTitle="ProstateCryoAblation")
+      slicer.util.warningDisplay("The selected case directory seems not to be valid", windowTitle="ProstateAblation")
       self.close(save=False)
     else:
       self.loadCaseData()
@@ -512,7 +512,7 @@ class ProstateCryoAblationSession(StepBasedSession):
             '  Patient ID: {2}\n' \
             '  Patient Name : {3}\n\n' \
             'Do you want to keep this series? '.format(currentID, patientName, patientID, receivedInfo["PatientName"])
-        if not slicer.util.confirmYesNoDisplay(m, title="Patient IDs Not Matching", windowTitle="ProstateCryoAblation"):
+        if not slicer.util.confirmYesNoDisplay(m, title="Patient IDs Not Matching", windowTitle="ProstateAblation"):
           self.deleteSeriesFromSeriesList(seriesNumber)
 
   def getPatientIDValidationSource(self):

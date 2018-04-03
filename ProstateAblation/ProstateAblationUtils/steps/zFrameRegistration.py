@@ -7,8 +7,8 @@ import ast
 import SimpleITK as sitk
 import sitkUtils
 
-from ..constants import ProstateCryoAblationConstants
-from base import ProstateCryoAblationLogicBase, ProstateCryoAblationStep
+from ..constants import ProstateAblationConstants
+from base import ProstateAblationLogicBase, ProstateAblationStep
 
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
@@ -49,7 +49,7 @@ class OpenSourceZFrameRegistration(ZFrameRegistrationBase):
     print params
     slicer.cli.run(slicer.modules.zframeregistration, None, params, wait_for_completion=True)
 
-class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicBase):
+class ProstateAblationZFrameRegistrationStepLogic(ProstateAblationLogicBase):
 
   __metaclass__ = Singleton
 
@@ -69,8 +69,8 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
   def zFrameSuccessfulLoaded(self):
     return self.zFrameModelNode
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationZFrameRegistrationStepLogic, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationZFrameRegistrationStepLogic, self).__init__(ProstateAblationSession)
     self.resourcesPath = os.path.join(self.modulePath, "Resources")
     self.setupSliceWidgets()
     self.resetAndInitialize()
@@ -95,10 +95,10 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     self.loadTemplateConfigFile()
 
   def cleanup(self):
-    super(ProstateCryoAblationZFrameRegistrationStepLogic, self).cleanup()
+    super(ProstateAblationZFrameRegistrationStepLogic, self).cleanup()
     self.resetAndInitialize()
 
-  @onModuleSelected(ProstateCryoAblationStep.MODULE_NAME)
+  @onModuleSelected(ProstateAblationStep.MODULE_NAME)
   def onMrmlSceneCleared(self, caller, event):
     self.resetAndInitialize()
 
@@ -267,13 +267,13 @@ class ProstateCryoAblationZFrameRegistrationStepLogic(ProstateCryoAblationLogicB
     return end
 
 
-class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
+class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
 
   NAME = "ZFrame Registration"
-  LogicClass = ProstateCryoAblationZFrameRegistrationStepLogic
+  LogicClass = ProstateAblationZFrameRegistrationStepLogic
   LayoutClass = qt.QVBoxLayout
 
-  def __init__(self, prostateCryoAblationSession):
+  def __init__(self, ProstateAblationSession):
     self.annotationLogic = slicer.modules.annotations.logic()
     self.zFrameRegistrationClass = getattr(sys.modules[__name__], self.getSetting("ZFrame_Registration_Class_Name"))
     self.roiObserverTag = None
@@ -285,7 +285,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.zFrameClickObserver = None
     self.zFrameInstructionAnnotation = None
 
-    super(ProstateCryoAblationZFrameRegistrationStep, self).__init__(prostateCryoAblationSession)
+    super(ProstateAblationZFrameRegistrationStep, self).__init__(ProstateAblationSession)
     self.logic.templateVolume = None
     
   def setupIcons(self):
@@ -297,7 +297,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.retryIcon = Icons.retry
 
   def setup(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).setup()
+    super(ProstateAblationZFrameRegistrationStep, self).setup()
     self.setupManualIndexesGroupBox()
     self.setupAdditionalViewSettingButtons()
     self.setupActionButtons()
@@ -309,7 +309,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
 
 
   def cleanup(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).cleanup()
+    super(ProstateAblationZFrameRegistrationStep, self).cleanup()
     self.logic.cleanup()
 
   def onBackButtonClicked(self):
@@ -359,11 +359,11 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
     self.showTemplatePathButton.connect('toggled(bool)', self.onShowTemplatePathToggled)
 
   def addSessionObservers(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).addSessionObservers()
+    super(ProstateAblationZFrameRegistrationStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.InitiateZFrameCalibrationEvent, self.onInitiateZFrameCalibration)
 
   def removeSessionEventObservers(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).removeSessionEventObservers()
+    super(ProstateAblationZFrameRegistrationStep, self).removeSessionEventObservers()
     self.session.removeEventObserver(self.session.InitiateZFrameCalibrationEvent, self.onInitiateZFrameCalibration)
 
   def onShowZFrameModelToggled(self, checked):
@@ -418,8 +418,8 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
       self.applyZFrameTransform()
 
   def onActivation(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).onActivation()
-    self.layoutManager.setLayout(ProstateCryoAblationConstants.LAYOUT_FOUR_UP)
+    super(ProstateAblationZFrameRegistrationStep, self).onActivation()
+    self.layoutManager.setLayout(ProstateAblationConstants.LAYOUT_FOUR_UP)
     self.showZFrameModelButton.checked = True
     self.showTemplateButton.checked = True
     self.showTemplatePathButton.checked = True
@@ -428,7 +428,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
       self.initiateZFrameRegistrationStep()
 
   def onDeactivation(self):
-    super(ProstateCryoAblationZFrameRegistrationStep, self).onDeactivation()
+    super(ProstateAblationZFrameRegistrationStep, self).onDeactivation()
     self.showZFrameModelButton.checked = False
     self.showTemplateButton.checked = False
     self.showTemplatePathButton.checked = False
@@ -486,7 +486,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
   def addZFrameInstructions(self, step=1):
     self.removeZFrameInstructionAnnotation()
     self.zFrameStep = step
-    text = ProstateCryoAblationConstants.ZFrame_INSTRUCTION_STEPS[self.zFrameStep]
+    text = ProstateAblationConstants.ZFrame_INSTRUCTION_STEPS[self.zFrameStep]
     self.zFrameInstructionAnnotation = SliceAnnotation(self.redWidget, text, yPos=55, horizontalAlign="center",
                                                        opacity=0.6, color=(0,0.6,0))
     self.zFrameClickObserver = self.redSliceViewInteractor.AddObserver(vtk.vtkCommand.LeftButtonReleaseEvent,
@@ -497,7 +497,7 @@ class ProstateCryoAblationZFrameRegistrationStep(ProstateCryoAblationStep):
   def onZFrameStepAccomplished(self, observee, event):
     self.removeZFrameInstructionAnnotation()
     nextStep = self.zFrameStep + 1
-    if nextStep in ProstateCryoAblationConstants.ZFrame_INSTRUCTION_STEPS.keys():
+    if nextStep in ProstateAblationConstants.ZFrame_INSTRUCTION_STEPS.keys():
       self.addZFrameInstructions(nextStep)
 
   def removeZFrameInstructionAnnotation(self):

@@ -1,8 +1,8 @@
 import slicer
 
-class ProstateCryoAblationConstants(object):
+class ProstateAblationConstants(object):
 
-  MODULE_NAME = "ProstateCryoAblation"
+  MODULE_NAME = "ProstateAblation"
 
   INTRAOP_SAMPLE_DATA_URL = 'https://github.com/SlicerProstate/SliceTracker/releases/download/test-data/Intraop-deid.zip'
 

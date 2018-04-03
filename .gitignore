@@ -1,7 +1,7 @@
 .gitignore
 .*
 .idea/*
-/ProstateCryoAblation/*.pyc
-/ProstateCryoAblation/ProstateCryoAblationUtils/*.pyc
-/ProstateCryoAblation/ProstateCryoAblationUtils/*/*.pyc
-/ProstateCryoAblation/ProstateCryoAblationUtils/*/*/*.pyc
+/ProstateAblation/*.pyc
+/ProstateAblation/ProstateAblationUtils/*.pyc
+/ProstateAblation/ProstateAblationUtils/*/*.pyc
+/ProstateAblation/ProstateAblationUtils/*/*/*.pyc

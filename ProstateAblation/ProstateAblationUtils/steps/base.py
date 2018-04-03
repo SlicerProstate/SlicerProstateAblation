@@ -1,10 +1,10 @@
 import vtk, qt, logging, slicer, os
 from SlicerDevelopmentToolboxUtils.decorators import beforeRunProcessEvents, onModuleSelected
-from ProstateCryoAblationUtils.constants import ProstateCryoAblationConstants as constants
+from ProstateAblationUtils.constants import ProstateAblationConstants as constants
 from SlicerDevelopmentToolboxUtils.icons import Icons
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, GeneralModuleMixin
 
-class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
+class ProstateAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
 
   MODULE_NAME = constants.MODULE_NAME
   LogicClass = None
@@ -30,7 +30,7 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
       self.onDeactivation()
   
   def __init__(self, session):
-    super(ProstateCryoAblationWidgetBase, self).__init__()
+    super(ProstateAblationWidgetBase, self).__init__()
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self._plugins = []
     if self.LogicClass:
@@ -117,7 +117,7 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
 
   def setAvailableLayouts(self, layouts):
     if not all([l in constants.ALLOWED_LAYOUTS for l in layouts]):
-      raise ValueError("Not all of the delivered layouts are allowed to be used in ProstateCryoAblation")
+      raise ValueError("Not all of the delivered layouts are allowed to be used in ProstateAblation")
     self.invokeEvent(self.AvailableLayoutsChangedEvent, str(layouts))
 
   def addPlugin(self, plugin):
@@ -191,9 +191,9 @@ class ProstateCryoAblationWidgetBase(qt.QWidget, ModuleWidgetMixin):
     self.setBackgroundToVolumeID(volume.GetID())
 
 
-class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
+class ProstateAblationStep(ProstateAblationWidgetBase):
 
-  def __init__(self, prostateCryoAblationSession):
+  def __init__(self, ProstateAblationSession):
     self.viewSettingButtons = []
     iconSize = qt.QSize(36, 36)
     self.finishStepIcon = Icons.start
@@ -203,7 +203,7 @@ class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
     self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
                                               toolTip="Confirm the targeting")
     self.parameterNode.SetAttribute("Name", self.NAME)
-    super(ProstateCryoAblationStep, self).__init__(prostateCryoAblationSession)
+    super(ProstateAblationStep, self).__init__(ProstateAblationSession)
 
   def addNavigationButtons(self):
     self.finishStepButton.setFixedHeight(45)
@@ -212,20 +212,20 @@ class ProstateCryoAblationStep(ProstateCryoAblationWidgetBase):
   def resetAndInitialize(self):
     pass
 
-class ProstateCryoAblationLogicBase(ModuleLogicMixin):
+class ProstateAblationLogicBase(ModuleLogicMixin):
 
   MODULE_NAME = constants.MODULE_NAME
   
   def __init__(self, session):
-    super(ProstateCryoAblationLogicBase, self).__init__()
+    super(ProstateAblationLogicBase, self).__init__()
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.MODULE_NAME)).replace(".py", "")
     self.session = session
 
   def cleanup(self):
     pass
 
-class ProstateCryoAblationPlugin(ProstateCryoAblationWidgetBase):
+class ProstateAblationPlugin(ProstateAblationWidgetBase):
 
   def __init__(self, session):
-    super(ProstateCryoAblationPlugin, self).__init__(session)
+    super(ProstateAblationPlugin, self).__init__(session)
     

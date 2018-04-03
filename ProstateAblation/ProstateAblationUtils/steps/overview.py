@@ -9,32 +9,32 @@ import vtk
 from SlicerDevelopmentToolboxUtils.constants import COLOR
 from SlicerDevelopmentToolboxUtils.decorators import logmethod, onReturnProcessEvents, processEventsEvery
 from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar
-from base import ProstateCryoAblationLogicBase, ProstateCryoAblationStep
-from ProstateCryoAblationUtils.steps.plugins.case import ProstateCryoAblationCaseManagerPlugin
-from ProstateCryoAblationUtils.steps.plugins.training import ProstateCryoAblationTrainingPlugin
-from ..constants import ProstateCryoAblationConstants as constants
+from base import ProstateAblationLogicBase, ProstateAblationStep
+from ProstateAblationUtils.steps.plugins.case import ProstateAblationCaseManagerPlugin
+from ProstateAblationUtils.steps.plugins.training import ProstateAblationTrainingPlugin
+from ..constants import ProstateAblationConstants as constants
 from ..helpers import SeriesTypeManager
 from SlicerDevelopmentToolboxUtils.icons import Icons
 
-class ProstateCryoAblationOverViewStepLogic(ProstateCryoAblationLogicBase):
+class ProstateAblationOverViewStepLogic(ProstateAblationLogicBase):
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationOverViewStepLogic, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationOverViewStepLogic, self).__init__(ProstateAblationSession)
 
-class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
+class ProstateAblationOverviewStep(ProstateAblationStep):
 
   NAME = "Overview"
-  LogicClass = ProstateCryoAblationOverViewStepLogic
+  LogicClass = ProstateAblationOverViewStepLogic
   LayoutClass = qt.QVBoxLayout
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationOverviewStep, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationOverviewStep, self).__init__(ProstateAblationSession)
     self.notifyUserAboutNewData = True
     self.horizontalBox = qt.QGroupBox()
     self.horizontalLayout = qt.QHBoxLayout()
     self.horizontalBox.setLayout(self.horizontalLayout)
     
   def cleanup(self):
-    super(ProstateCryoAblationOverviewStep, self).cleanup()
+    super(ProstateAblationOverviewStep, self).cleanup()
     self._seriesModel.clear()
     self.trackTargetsButton.enabled = False
     self.updateIntraopSeriesSelectorTable()
@@ -44,10 +44,10 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.skipIcon = Icons.skip
 
   def setup(self):
-    super(ProstateCryoAblationOverviewStep, self).setup()
+    super(ProstateAblationOverviewStep, self).setup()
     iconSize = qt.QSize(24, 24)
-    self.caseManagerPlugin = ProstateCryoAblationCaseManagerPlugin(self.session)
-    self.trainingPlugin = ProstateCryoAblationTrainingPlugin(self.session)
+    self.caseManagerPlugin = ProstateAblationCaseManagerPlugin(self.session)
+    self.trainingPlugin = ProstateAblationTrainingPlugin(self.session)
 
     self.trackTargetsButton = self.createButton("", icon=self.trackIcon, iconSize=iconSize, toolTip="Track targets",
                                                 enabled=False)
@@ -68,18 +68,18 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
     self.intraopSeriesSelector.setModel(self._seriesModel)
 
   def setupConnections(self):
-    super(ProstateCryoAblationOverviewStep, self).setupConnections()
+    super(ProstateAblationOverviewStep, self).setupConnections()
     self.needleTipLocateButton.clicked.connect(self.onNeedleTipLocateButtonClicked)
     self.trackTargetsButton.clicked.connect(self.onTrackTargetsButtonClicked)
     self.intraopSeriesSelector.connect('currentIndexChanged(QString)', self.onIntraopSeriesSelectionChanged)
 
   def addSessionObservers(self):
-    super(ProstateCryoAblationOverviewStep, self).addSessionObservers()
+    super(ProstateAblationOverviewStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.SeriesTypeManuallyAssignedEvent, self.onSeriesTypeManuallyAssigned)
     self.session.addEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
 
   def removeSessionEventObservers(self):
-    ProstateCryoAblationStep.removeSessionEventObservers(self)
+    ProstateAblationStep.removeSessionEventObservers(self)
     self.session.removeEventObserver(self.session.SeriesTypeManuallyAssignedEvent, self.onSeriesTypeManuallyAssigned)
     self.session.removeEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
 
@@ -134,11 +134,11 @@ class ProstateCryoAblationOverviewStep(ProstateCryoAblationStep):
   @vtk.calldata_type(vtk.VTK_STRING)
   def onCaseClosed(self, caller, event, callData):
     if callData != "None":
-      slicer.util.infoDisplay(callData, windowTitle="ProstateCryoAblation")
+      slicer.util.infoDisplay(callData, windowTitle="ProstateAblation")
     self.cleanup()
 
   def onActivation(self):
-    super(ProstateCryoAblationOverviewStep, self).onActivation()
+    super(ProstateAblationOverviewStep, self).onActivation()
     self.layout().addWidget(self.session.targetingPlugin.targetingGroupBox)
     self.session.targetingPlugin.targetingGroupBox.visible = True
     self.session.targetingPlugin.fiducialsWidget.visible = False

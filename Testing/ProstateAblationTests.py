@@ -1,23 +1,23 @@
 import unittest
 import os, inspect, slicer
-from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
-from ProstateCryoAblationUtils.sessionData import SessionData
+from ProstateAblationUtils.session import ProstateAblationSession
+from ProstateAblationUtils.sessionData import SessionData
 
-__all__ = ['ProstateCryoAblationSessionTests', 'RegistrationResultsTest']
+__all__ = ['ProstateAblationSessionTests', 'RegistrationResultsTest']
 
-tempDir =  os.path.join(slicer.app.temporaryPath, "ProstateCryoAblationSessionResults")
+tempDir =  os.path.join(slicer.app.temporaryPath, "ProstateAblationSessionResults")
 
-class ProstateCryoAblationSessionTests(unittest.TestCase):
+class ProstateAblationSessionTests(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    cls.session = ProstateCryoAblationSession()
+    cls.session = ProstateAblationSession()
 
   def runTest(self):
-    self.test_ProstateCryoAblationSessionEvents()
-    self.test_ProstateCryoAblationSessionSingleton()
+    self.test_ProstateAblationSessionEvents()
+    self.test_ProstateAblationSessionSingleton()
 
-  def test_ProstateCryoAblationSessionEvents(self):
+  def test_ProstateAblationSessionEvents(self):
     self.directoryChangedEventCalled = False
     self.session.addEventObserver(self.session.DirectoryChangedEvent,
                                   lambda event,caller:setattr(self, "directoryChangedEventCalled", True))
@@ -26,8 +26,8 @@ class ProstateCryoAblationSessionTests(unittest.TestCase):
     self.session.directory = tempDir
     self.assertTrue(self.directoryChangedEventCalled)
 
-  def test_ProstateCryoAblationSessionSingleton(self):
-    session = ProstateCryoAblationSession()
+  def test_ProstateAblationSessionSingleton(self):
+    session = ProstateAblationSession()
     self.assertTrue(self.session is session)
     self.assertTrue(session.directory == self.session.directory)
 

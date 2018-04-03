@@ -3,25 +3,135 @@ import vtk
 import numpy
 import logging
 import slicer
-from ...constants import ProstateCryoAblationConstants as constants
-from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
+from ...constants import ProstateAblationConstants as constants
+from ..base import ProstateAblationPlugin, ProstateAblationLogicBase
+from ProstateAblationUtils.steps.zFrameRegistration import ProstateAblationZFrameRegistrationStepLogic
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from functools import partial
 
+class MyCheckBox(qt.QWidget):
+  def __init__(self, parent=None):
+    qt.QWidget.__init__(self, parent)
+    # create a centered checkbox
+    self.cb = qt.QCheckBox(parent)
+    cbLayout = qt.QHBoxLayout()
+    self.cb.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
+    cbLayout.addWidget(self.cb, 0, qt.Qt.AlignCenter)
+    self.setLayout(cbLayout)
+    self.cb.toggled.connect(self.amClicked)
 
-class TargetsDistanceTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
+  def amClicked(self):
+    self.cb.clicked.emit()
 
-  PLANNING_IMAGE_NAME = "Targets distance measure"
+  def setChecked(self, check):
+    self.cb.setChecked(check)
+
+  def isChecked(self):
+    return self.cb.isChecked()
+
+class CheckBoxDelegate(qt.QItemDelegate):
+  """
+  A delegate that places a fully functioning QCheckBox in every
+  cell of the column to which it's applied
+  """
+
+  def __init__(self, parent, ProstateAblationSession):
+    qt.QItemDelegate.__init__(self, parent)
+    self.session = ProstateAblationSession
+
+  def createEditor(self, painDevice, option, index):
+    if not (qt.Qt.ItemIsEditable & index.flags()):
+      return None
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    checked = self.session.displayForTargets.get(targetNode.GetNthMarkupID(rowNum))
+    if checked is None:
+      self.session.displayForTargets[targetNode.GetNthMarkupID(rowNum)] = qt.Qt.Unchecked
+      checked = qt.Qt.Unchecked
+    customCheckbox = MyCheckBox(painDevice)
+    if not (self.parent().checkBoxList is None):
+      self.parent().checkBoxList[targetNode.GetNthMarkupID(rowNum)] = customCheckbox
+    customCheckbox.cb.setChecked(checked)
+    self.connect(customCheckbox.cb, qt.SIGNAL("clicked()"), partial(self.clicked, customCheckbox))
+    return customCheckbox
+
+  def setModelData(self, checkbox, model, index):
+    # Send data to the model
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    self.session.displayForTargets[targetNode.GetNthMarkupID(rowNum)] = qt.Qt.Checked if checkbox.isChecked() else qt.Qt.Unchecked
+    model.setData(index, checkbox.isChecked(), qt.Qt.EditRole)
+    self.session.updateAffectiveZoneAndDistance()
+
+  def clicked(self, checkbox):
+    self.commitData.emit(checkbox)
+
+
+class ComBoxDelegate(qt.QItemDelegate):
+  """
+  A delegate that places a fully functioning QCheckBox in every
+  cell of the column to which it's applied
+  """
+
+  def __init__(self, parent, ProstateAblationSession):
+    qt.QItemDelegate.__init__(self, parent)
+    self.session = ProstateAblationSession
+
+  def createEditor(self, painDevice, option, index):
+    if not (qt.Qt.ItemIsEditable & index.flags()):
+      return None
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    needleType = self.session.needleTypeForTargets.get(targetNode.GetNthMarkupID(rowNum))
+    if needleType is None:
+      self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)] = self.session.ISSEEDTYPE
+      needleType =  self.session.ISSEEDTYPE
+    comboBox = qt.QComboBox(painDevice)
+    comboBoxItems = []
+    comboBoxItems.append(self.session.ISSEEDTYPE)
+    comboBoxItems.append(self.session.ISRODTYPE)
+    comboBox.addItems(comboBoxItems)
+    comboBox.setCurrentIndex(0)
+    if not (self.parent().comboBoxList is None):
+      self.parent().comboBoxList[targetNode.GetNthMarkupID(rowNum)] = comboBox
+    self.connect(comboBox, qt.SIGNAL("currentIndexChanged(int)"), partial(self.currentIndexChanged, comboBox))
+    return comboBox
+
+  def setModelData(self, comboBox, model, index):
+    # Send data to the model
+    rowNum = index.row()
+    targetNode = self.session.targetingPlugin.targetTablePlugin.currentTargets
+    storedIndex = comboBox.findText(self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)])
+    if not storedIndex == comboBox.currentIndex:
+      if slicer.util.confirmYesNoDisplay("Do you really want to Change the needle type? ", title="Needle Type Select",
+                                         windowTitle="ProstateAblation"):
+
+        self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)] = comboBox.currentText
+        model.setData(index, comboBox.currentText, qt.Qt.EditRole)
+        self.session.updateAffectiveZoneAndDistance()
+      else:
+        storedIndex =  comboBox.findText(self.session.needleTypeForTargets[targetNode.GetNthMarkupID(rowNum)])
+        comboBox.blockSignals(True)
+        comboBox.setCurrentIndex(storedIndex)
+        comboBox.blockSignals(False)
+
+  def currentIndexChanged(self, comboBox, int):
+    self.commitData.emit(comboBox)
+
+
+class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
+
+  PLANNING_IMAGE_NAME = "Initial registration"
 
   COLUMN_NAME = 'Name'
   COLUMN_DISPLAY = 'Display'
-  COLUMN_RELATEDTARGET = 'RelatedTarget'
-  COLUMN_DISTANCE = 'Distance'
-  COLUMN_DELETE = 'Delete'
+  COLUMN_NEEDLETYPE = 'NeedleType'
+  COLUMN_HOLE = 'Hole'
+  COLUMN_DEPTH = 'Depth[cm]'
 
-  headers = [COLUMN_NAME, COLUMN_DISPLAY, COLUMN_RELATEDTARGET, COLUMN_DISTANCE, COLUMN_DELETE]
+  headers = [COLUMN_NAME, COLUMN_DISPLAY, COLUMN_NEEDLETYPE, COLUMN_HOLE, COLUMN_DEPTH]
 
   @property
   def targetList(self):
@@ -36,7 +146,7 @@ class TargetsDistanceTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     if self.currentGuidanceComputation:
       self.observer = self.currentGuidanceComputation.addEventObserver(vtk.vtkCommand.ModifiedEvent,
                                                                        self.updateTable)
-    self.reset()
+    self.reset()  
 
   @property
   def coverProstateTargetList(self):
@@ -56,9 +166,9 @@ class TargetsDistanceTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self._cursorPosition = cursorPosition
     self.dataChanged(self.index(0, 1), self.index(self.rowCount()-1, 2))
 
-  def __init__(self, prostateCryoAblationSession, targets=None, parent=None, *args):
+  def __init__(self, ProstateAblationSession, targets=None, parent=None, *args):
     qt.QAbstractTableModel.__init__(self, parent, *args)
-    self.session = prostateCryoAblationSession
+    self.session = ProstateAblationSession
     self._cursorPosition = None
     self._targetList = None
     self._guidanceComputations = []
@@ -179,21 +289,128 @@ class TargetsDistanceTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
       elif len(outOfRangeText):
         return outOfRangeText
     return None
-  
 
-class TargetsDistanceTableLogic(ProstateCryoAblationLogicBase):
 
-  def __init__(self, prostateCryoAblationSession):
-    super(TargetsDistanceTableLogic, self).__init__(prostateCryoAblationSession)
+class ZFrameGuidanceComputation(ModuleLogicMixin):
+
+  SUPPORTED_EVENTS = [vtk.vtkCommand.ModifiedEvent]
+
+  def __init__(self, ProstateAblationSession, targetList = None):
+    self.zFrameRegistration = ProstateAblationZFrameRegistrationStepLogic(ProstateAblationSession)
+    self.session = ProstateAblationSession
+    self.targetList = targetList
+    if self.targetList:
+      self.observer = self.targetList.AddObserver(self.targetList.PointModifiedEvent, self.calculate)
+      self.observer = self.targetList.AddObserver(self.targetList.MarkupRemovedEvent, self.calculate)
+    self.reset()
+    self.calculate()
+
+  def __del__(self):
+    if self.targetList and self.observer:
+      self.targetList.RemoveObserver(self.observer)
+
+  def reset(self):
+    self.needleStartEndPositions = {}
+    self.computedHoles = {}
+    self.computedDepth = {}
+
+  def calculate(self, caller=None, event=None):
+    if not self.targetList:
+      return
+    self.reset()
+    for index in range(self.targetList.GetNumberOfFiducials()):
+      self.calculateZFrameHoleAndDepth(index)
+    self.invokeEvent(vtk.vtkCommand.ModifiedEvent)
+
+  def getNeedleEndPos(self, index):
+    if index not in self.computedHoles.keys():
+      self.calculateZFrameHoleAndDepth(index)
+    return self.needleStartEndPositions[index][1]
+
+  def getZFrameHole(self, index):
+    if index not in self.computedHoles.keys():
+      self.calculateZFrameHoleAndDepth(index)
+    return '(%s, %s)' % (self.computedHoles[index][0], self.computedHoles[index][1])
+
+  def getZFrameDepth(self, index, asString=True):
+    if index not in self.computedHoles.keys():
+      self.calculateZFrameHoleAndDepth(index)
+    if asString:
+      return '%.1f' % self.computedDepth[index][1] if self.computedDepth[index][0] else \
+        '(%.1f)' % self.computedDepth[index][1]
+    else:
+      return self.computedDepth[index][1]
+
+  def getZFrameDepthInRange(self, index):
+    if index not in self.computedHoles.keys():
+      self.calculateZFrameHoleAndDepth(index)
+    return self.computedDepth[index][0]
+
+  def calculateZFrameHoleAndDepth(self, index):
+    targetPosition = self.getTargetPosition(self.targetList, index)
+    (start, end, indexX, indexY, depth, inRange) = self.computeNearestPath(targetPosition)
+    logging.debug("start:{}, end:{}, indexX:{}, indexY:{}, depth:{}, inRange:{}".format(start, end, indexX, indexY, depth, inRange))
+    needleDirection = (numpy.array(end) - numpy.array(start)) / numpy.linalg.norm(numpy.array(end) - numpy.array(start))
+    self.needleStartEndPositions[index] = (start, start + depth * needleDirection)
+    self.computedHoles[index] = [indexX, indexY]
+    self.computedDepth[index] = [inRange, round(depth/10, 1)]
+
+  def computeNearestPath(self, pos):
+    minMag2 = numpy.Inf
+    minDepth = 0.0
+    minIndex = -1
+    needleStart = None
+    needleEnd = None
+
+    p = numpy.array(pos)
+    for i, orig in enumerate(self.zFrameRegistration.pathOrigins):
+      vec = self.zFrameRegistration.pathVectors[i]
+      op = p - orig
+      aproj = numpy.inner(op, vec)
+      perp = op-aproj*vec
+      mag2 = numpy.vdot(perp, perp)
+      if mag2 < minMag2:
+        minMag2 = mag2
+        minIndex = i
+        minDepth = aproj
+      i += 1
+
+    indexX = '--'
+    indexY = '--'
+    inRange = False
+
+    if minIndex != -1:
+      indexX = self.zFrameRegistration.templateIndex[minIndex][0]
+      indexY = self.zFrameRegistration.templateIndex[minIndex][1]
+      if 0 < minDepth < self.zFrameRegistration.templateMaxDepth[minIndex]:
+        inRange = True
+        needleStart, needleEnd = self.getNeedleStartEndPointFromPathOrigins(minIndex)
+
+    return needleStart, needleEnd, indexX, indexY, minDepth, inRange
+
+  def getNeedleStartEndPointFromPathOrigins(self, index):
+    start = self.zFrameRegistration.pathOrigins[index]
+    v = self.zFrameRegistration.pathVectors[index]
+    nl = numpy.linalg.norm(v)
+    n = v / nl  # normal vector
+    l = self.zFrameRegistration.templateMaxDepth[index]
+    end = start + l * n
+    return start, end
+
+
+class TargetsDefinitionTableLogic(ProstateAblationLogicBase):
+
+  def __init__(self, ProstateAblationSession):
+    super(TargetsDefinitionTableLogic, self).__init__(ProstateAblationSession)
 
   def setTargetSelected(self, targetNode, selected=False):
     self.markupsLogic.SetAllMarkupsSelected(targetNode, selected)
 
 
-class TargetsDistanceTable(ProstateCryoAblationPlugin):
+class TargetsDefinitionTable(ProstateAblationPlugin):
 
   NAME = "TargetTable"
-  LogicClass = TargetsDistanceTableLogic
+  LogicClass = TargetsDefinitionTableLogic
 
   TargetPosUpdatedEvent = vtk.vtkCommand.UserEvent + 337
 
@@ -242,8 +459,8 @@ class TargetsDistanceTable(ProstateCryoAblationPlugin):
     if self.currentTargets:
       self.onTargetSelectionChanged()
 
-  def __init__(self, prostateCryoAblationSession, **kwargs):
-    super(TargetsDistanceTable, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession, **kwargs):
+    super(TargetsDefinitionTable, self).__init__(ProstateAblationSession)
     self.movingEnabled = kwargs.pop("movingEnabled", False)
     self.checkBoxList = dict()
     self.comboBoxList = dict()
@@ -252,7 +469,7 @@ class TargetsDistanceTable(ProstateCryoAblationPlugin):
     self.mouseReleaseEventObservers = {}
 
   def setup(self):
-    super(TargetsDistanceTable, self).setup()
+    super(TargetsDefinitionTable, self).setup()
     self.targetTable = qt.QTableView()
     self.targetTableModel = CustomTargetTableModel(self.session)
     self.targetTable.setModel(self.targetTableModel)
@@ -273,17 +490,25 @@ class TargetsDistanceTable(ProstateCryoAblationPlugin):
     self.comboBoxList.clear()
   
   def setTargetTableSizeConstraints(self):
-    self.targetTable.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
-    self.targetTable.horizontalHeader().setResizeMode(0, qt.QHeaderView.Fixed)
-    self.targetTable.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
-    self.targetTable.horizontalHeader().setResizeMode(2, qt.QHeaderView.Stretch)
-    self.targetTable.horizontalHeader().setResizeMode(3, qt.QHeaderView.ResizeToContents)
-    self.targetTable.horizontalHeader().setResizeMode(4, qt.QHeaderView.ResizeToContents)
+    if int(qt.qVersion()[0]) < 5 :
+      self.targetTable.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
+      self.targetTable.horizontalHeader().setResizeMode(0, qt.QHeaderView.Fixed)
+      self.targetTable.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
+      self.targetTable.horizontalHeader().setResizeMode(2, qt.QHeaderView.Stretch)
+      self.targetTable.horizontalHeader().setResizeMode(3, qt.QHeaderView.ResizeToContents)
+      self.targetTable.horizontalHeader().setResizeMode(4, qt.QHeaderView.ResizeToContents)
+    elif int(qt.qVersion()[0]) >= 5:
+      self.targetTable.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+      self.targetTable.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.Fixed)
+      self.targetTable.horizontalHeader().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+      self.targetTable.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.Stretch)
+      self.targetTable.horizontalHeader().setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
+      self.targetTable.horizontalHeader().setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
 
   def setupConnections(self):
     self.targetTable.connect('clicked(QModelIndex)', self.onTargetSelectionChanged)
 
-  @onModuleSelected(ProstateCryoAblationPlugin.MODULE_NAME)
+  @onModuleSelected(ProstateAblationPlugin.MODULE_NAME)
   def onLayoutChanged(self, layout=None):
     self.disableTargetMovingMode()
 
@@ -292,7 +517,7 @@ class TargetsDistanceTable(ProstateCryoAblationPlugin):
     self.currentTargets = None
 
   def onActivation(self):
-    super(TargetsDistanceTable, self).onActivation()
+    super(TargetsDefinitionTable, self).onActivation()
     self.moveTargetMode = False
     self.currentlyMovedTargetModelIndex = None
     self.connectKeyEventObservers()
@@ -300,7 +525,7 @@ class TargetsDistanceTable(ProstateCryoAblationPlugin):
       self.onTargetSelectionChanged()
 
   def onDeactivation(self):
-    super(TargetsDistanceTable, self).onDeactivation()
+    super(TargetsDefinitionTable, self).onDeactivation()
     self.disableTargetMovingMode()
     self.disconnectKeyEventObservers()
 
@@ -461,5 +686,4 @@ class TargetsDistanceTable(ProstateCryoAblationPlugin):
       if interactor is observee:
         return widget
     return None
-  
-  
+

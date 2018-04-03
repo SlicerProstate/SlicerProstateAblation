@@ -1,14 +1,13 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME ProstateCryoAblation)
+set(MODULE_NAME ProstateAblation)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
-  ProstateCryoAblationUtils/__init__.py
-  ProstateCryoAblationUtils/steps/__init__.py
-  ProstateCryoAblationUtils/steps/intraOperativeTargeting.py
-  ProstateCryoAblationUtils/appConfig.py
-  ProstateCryoAblationUtils/UserEvents.py
+  ProstateAblationUtils/__init__.py
+  ProstateAblationUtils/steps/__init__.py
+  ProstateAblationUtils/steps/intraOperativeTargeting.py
+  ProstateAblationUtils/appConfig.py
   )
 
 set(MODULE_PYTHON_RESOURCES

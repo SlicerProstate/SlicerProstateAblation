@@ -11,18 +11,18 @@ from SlicerDevelopmentToolboxUtils.decorators import logmethod
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
 from SlicerDevelopmentToolboxUtils.widgets import BasicInformationWatchBox
 
-from ..base import ProstateCryoAblationPlugin, ProstateCryoAblationLogicBase
+from ..base import ProstateAblationPlugin, ProstateAblationLogicBase
 from SlicerDevelopmentToolboxUtils.icons import Icons
 
-class ProstateCryoAblationCaseManagerLogic(ProstateCryoAblationLogicBase):
+class ProstateAblationCaseManagerLogic(ProstateAblationLogicBase):
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationCaseManagerLogic, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationCaseManagerLogic, self).__init__(ProstateAblationSession)
 
 
-class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
+class ProstateAblationCaseManagerPlugin(ProstateAblationPlugin):
 
-  LogicClass = ProstateCryoAblationCaseManagerLogic
+  LogicClass = ProstateAblationCaseManagerLogic
   NAME = "CaseManager"
 
   @property
@@ -41,8 +41,8 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
     self.openCaseButton.enabled = exists
     self.createNewCaseButton.enabled = exists
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationCaseManagerPlugin, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationCaseManagerPlugin, self).__init__(ProstateAblationSession)
     slicer.app.connect('aboutToQuit()', self.onSlicerQuits)
 
   def onSlicerQuits(self):
@@ -84,7 +84,7 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
                                                           self.closeCaseButton]))
     self.caseGroupBoxLayout.addWidget(self.caseDirectoryInformationArea)
     self.layout().addWidget(self.caseGroupBox)
-    super(ProstateCryoAblationCaseManagerPlugin, self).setup()
+    super(ProstateAblationCaseManagerPlugin, self).setup()
     
   def setupCaseWatchBox(self):
     watchBoxInformation = [WatchBoxAttribute('CurrentCaseDirectory', 'Directory'),
@@ -122,11 +122,11 @@ class ProstateCryoAblationCaseManagerPlugin(ProstateCryoAblationPlugin):
       self.session.close(save=False)
     else:
       if slicer.util.confirmYesNoDisplay("Do you want to mark this case as completed? ", title="Complete Case",
-                                         windowTitle="ProstateCryoAblation"):
+                                         windowTitle="ProstateAblation"):
         self.session.complete()
       else:
         self.session.close(save=slicer.util.confirmYesNoDisplay("Save the case data?", title="Close Case",
-                                                                windowTitle="ProstateCryoAblation"))
+                                                                windowTitle="ProstateAblation"))
     self.session.clearData()
 
   @logmethod(logging.INFO)

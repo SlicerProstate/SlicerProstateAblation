@@ -2,8 +2,8 @@ import qt
 import vtk
 import slicer
 import numpy
-from ...constants import ProstateCryoAblationConstants as constants
-from ..base import ProstateCryoAblationPlugin
+from ...constants import ProstateAblationConstants as constants
+from ..base import ProstateAblationPlugin
 
 from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
 from SlicerDevelopmentToolboxUtils.widgets import TargetCreationWidget
@@ -11,14 +11,14 @@ from SlicerDevelopmentToolboxUtils.icons import Icons
 from targetsDefinitionTable import TargetsDefinitionTable
 
 
-class TargetsDefinitionPlugin(ProstateCryoAblationPlugin):
+class TargetsDefinitionPlugin(ProstateAblationPlugin):
 
   NAME = "Targeting"
   TargetingStartedEvent = vtk.vtkCommand.UserEvent + 335
   TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
 
-  def __init__(self, prostateCryoAblationSession):
-    super(TargetsDefinitionPlugin, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(TargetsDefinitionPlugin, self).__init__(ProstateAblationSession)
     
   def setup(self):
     self.targetTablePlugin = TargetsDefinitionTable(self.session, movingEnabled=True)

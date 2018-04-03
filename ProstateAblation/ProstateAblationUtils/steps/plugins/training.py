@@ -6,23 +6,23 @@ import vtk
 import ctk
 import slicer
 
-from ...constants import ProstateCryoAblationConstants
-from ..base import ProstateCryoAblationPlugin
+from ...constants import ProstateAblationConstants
+from ..base import ProstateAblationPlugin
 
 from SlicerDevelopmentToolboxUtils.helpers import SampleDataDownloader
 from SlicerDevelopmentToolboxUtils.decorators import *
 
 
-class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
+class ProstateAblationTrainingPlugin(ProstateAblationPlugin):
 
   NAME = "Training"
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationTrainingPlugin, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationTrainingPlugin, self).__init__(ProstateAblationSession)
     self.sampleDownloader = SampleDataDownloader(True)
 
   def setup(self):
-    super(ProstateCryoAblationTrainingPlugin, self).setup()
+    super(ProstateAblationTrainingPlugin, self).setup()
     self.collapsibleTrainingArea = ctk.ctkCollapsibleButton()
     self.collapsibleTrainingArea.collapsed = True
     self.collapsibleTrainingArea.text = "Training Incoming Data Simulation"
@@ -37,16 +37,16 @@ class ProstateCryoAblationTrainingPlugin(ProstateCryoAblationPlugin):
     self.simulateIntraopPhaseButton.clicked.connect(self.startIntraopPhaseSimulation)
 
   def setupSessionObservers(self):
-    super(ProstateCryoAblationTrainingPlugin, self).setupSessionObservers()
+    super(ProstateAblationTrainingPlugin, self).setupSessionObservers()
     self.session.addEventObserver(self.session.IncomingDataSkippedEvent, self.onIncomingDataSkipped)
 
   def removeSessionEventObservers(self):
-    super(ProstateCryoAblationTrainingPlugin, self).removeSessionEventObservers()
+    super(ProstateAblationTrainingPlugin, self).removeSessionEventObservers()
     self.session.removeEventObserver(self.session.IncomingDataSkippedEvent, self.onIncomingDataSkipped)
 
   def startIntraopPhaseSimulation(self):
     self.simulateIntraopPhaseButton.enabled = True
-    intraopZipFile = self.initiateSampleDataDownload(ProstateCryoAblationConstants.INTRAOP_SAMPLE_DATA_URL)
+    intraopZipFile = self.initiateSampleDataDownload(ProstateAblationConstants.INTRAOP_SAMPLE_DATA_URL)
     if not self.sampleDownloader.wasCanceled() and intraopZipFile:
       print intraopZipFile
       self.unzipFileAndCopyToDirectory(intraopZipFile, self.session.intraopDICOMDirectory)

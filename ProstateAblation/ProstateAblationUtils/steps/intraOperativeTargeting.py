@@ -3,17 +3,17 @@ import ast
 import qt
 import slicer
 import vtk
-from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationLogicBase,ProstateCryoAblationStep
+from ProstateAblationUtils.steps.base import ProstateAblationLogicBase,ProstateAblationStep
 
-class ProstateCryoAblationTargetingStepLogic(ProstateCryoAblationLogicBase):
+class ProstateAblationTargetingStepLogic(ProstateAblationLogicBase):
   
   def __init__(self, prostateCryoSession):
-    super(ProstateCryoAblationTargetingStepLogic, self).__init__(prostateCryoSession)
+    super(ProstateAblationTargetingStepLogic, self).__init__(prostateCryoSession)
         
-class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
+class ProstateAblationTargetingStep(ProstateAblationStep):
 
   NAME = "Targeting"
-  LogicClass = ProstateCryoAblationTargetingStepLogic
+  LogicClass = ProstateAblationTargetingStepLogic
   LayoutClass = qt.QVBoxLayout
   HIDENEEDLE = 0
   ICESEED = 1
@@ -26,20 +26,20 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
   def NeedleType(self, type):
     self._NeedleType = type
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationTargetingStep, self).__init__(prostateCryoAblationSession)
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationTargetingStep, self).__init__(ProstateAblationSession)
     self._NeedleType = self.ICESEED
     self.tabWidget = qt.QTabWidget()
     self.layout().addWidget(self.tabWidget)
 
   def setup(self):
-    super(ProstateCryoAblationTargetingStep, self).setup()
+    super(ProstateAblationTargetingStep, self).setup()
     self.setupTargetingPlugin()
     self.addPlugin(self.session.targetingPlugin)
     self.layout().addStretch()
 
   def setupTargetingPlugin(self):
-    #self.targetingPlugin = ProstateCryoAblationTargetsDefinitionPlugin()
+    #self.targetingPlugin = ProstateAblationTargetsDefinitionPlugin()
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingStartedEvent, self.onTargetingStarted)
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
   
@@ -54,12 +54,12 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     self.session.previousStep.active = True
   
   def setupConnections(self):
-    super(ProstateCryoAblationTargetingStep, self).setupConnections()
+    super(ProstateAblationTargetingStep, self).setupConnections()
     self.backButton.clicked.connect(self.onBackButtonClicked)
     self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
 
   def onActivation(self):
-    super(ProstateCryoAblationTargetingStep, self).onActivation()
+    super(ProstateAblationTargetingStep, self).onActivation()
     if not self.session.currentSeriesVolume:
       return
     self.updateAvailableLayouts()
@@ -77,14 +77,14 @@ class ProstateCryoAblationTargetingStep(ProstateCryoAblationStep):
     pass
 
   def onDeactivation(self):
-    super(ProstateCryoAblationTargetingStep, self).onDeactivation()
+    super(ProstateAblationTargetingStep, self).onDeactivation()
 
   def addSessionObservers(self):
-    super(ProstateCryoAblationTargetingStep, self).addSessionObservers()
+    super(ProstateAblationTargetingStep, self).addSessionObservers()
     self.session.addEventObserver(self.session.InitiateTargetingEvent, self.onInitiateTargeting)
 
   def removeSessionEventObservers(self):
-    super(ProstateCryoAblationTargetingStep, self).removeSessionEventObservers()
+    super(ProstateAblationTargetingStep, self).removeSessionEventObservers()
     self.session.removeEventObserver(self.session.InitiateTargetingEvent, self.onInitiateTargeting)
 
   def onInitiateTargeting(self, caller, event):

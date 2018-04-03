@@ -4,14 +4,14 @@ import logging
 import qt
 import vtk
 
-from ProstateCryoAblationUtils.appConfig import ConfigurationParser
-from ProstateCryoAblationUtils.session import ProstateCryoAblationSession
-from ProstateCryoAblationUtils.steps.base import ProstateCryoAblationStep
-from ProstateCryoAblationUtils.steps.overview import ProstateCryoAblationOverviewStep
-from ProstateCryoAblationUtils.steps.zFrameRegistration import ProstateCryoAblationZFrameRegistrationStep
-from ProstateCryoAblationUtils.steps.intraOperativeTargeting import ProstateCryoAblationTargetingStep
-from ProstateCryoAblationUtils.steps.intraOperativeGuidance import ProstateCryoAblationGuidanceStep
-from ProstateCryoAblationUtils.steps.plugins.buttons import ScreenShotButton
+from ProstateAblationUtils.appConfig import ConfigurationParser
+from ProstateAblationUtils.session import ProstateAblationSession
+from ProstateAblationUtils.steps.base import ProstateAblationStep
+from ProstateAblationUtils.steps.overview import ProstateAblationOverviewStep
+from ProstateAblationUtils.steps.zFrameRegistration import ProstateAblationZFrameRegistrationStep
+from ProstateAblationUtils.steps.intraOperativeTargeting import ProstateAblationTargetingStep
+from ProstateAblationUtils.steps.intraOperativeGuidance import ProstateAblationGuidanceStep
+from ProstateAblationUtils.steps.plugins.buttons import ScreenShotButton
 from SlicerDevelopmentToolboxUtils.buttons import *
 from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
@@ -22,11 +22,11 @@ from SlicerDevelopmentToolboxUtils.widgets import CustomStatusProgressbar, DICOM
 from slicer.ScriptedLoadableModule import *
 from SlicerDevelopmentToolboxUtils.icons import Icons
 
-class ProstateCryoAblation(ScriptedLoadableModule):
+class ProstateAblation(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "ProstateCryoAblation"
+    self.parent.title = "ProstateAblation"
     self.parent.categories = ["IGT"]
     self.parent.dependencies = ["SlicerDevelopmentToolbox"]
     self.parent.contributors = ["Longquan Chen(SPL)", "Christian Herz(SPL)", "Junichi Tokuda (SPL)"]
@@ -37,15 +37,15 @@ class ProstateCryoAblation(ScriptedLoadableModule):
                                           Institutes of Health through grants xxx, xxx."""
 
 
-class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
+class ProstateAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.modulePath = os.path.dirname(slicer.util.modulePath(self.moduleName))
     ConfigurationParser(os.path.join(self.modulePath, 'Resources', "default.cfg"))
-    self.logic = ProstateCryoAblationLogic()
+    self.logic = ProstateAblationLogic()
 
-    self.session = ProstateCryoAblationSession()
+    self.session = ProstateAblationSession()
     self.session.steps = []
     self.session.removeEventObservers()
     self.session.addEventObserver(self.session.CloseCaseEvent, lambda caller, event: self.cleanup())
@@ -55,7 +55,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
 
   def enter(self):
     if not slicer.dicomDatabase:
-      slicer.util.errorDisplay("Slicer DICOMDatabase was not found. In order to be able to use ProstateCryoAblation, you will "
+      slicer.util.errorDisplay("Slicer DICOMDatabase was not found. In order to be able to use ProstateAblation, you will "
                                "need to set a proper location for the Slicer DICOMDatabase.")
     self.layout.parent().enabled = slicer.dicomDatabase is not None
 
@@ -74,7 +74,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    for step in [ProstateCryoAblationOverviewStep, ProstateCryoAblationZFrameRegistrationStep, ProstateCryoAblationTargetingStep, ProstateCryoAblationGuidanceStep]:
+    for step in [ProstateAblationOverviewStep, ProstateAblationZFrameRegistrationStep, ProstateAblationTargetingStep, ProstateAblationGuidanceStep]:
       registeredStep = step(self.session)
       self.session.registerStep(registeredStep)
     
@@ -134,7 +134,7 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     #self.crosshairButton.checked = False
 
   def setupTabBarNavigation(self):
-    self.tabWidget = ProstateCryoAblationTabWidget(self.session)
+    self.tabWidget = ProstateAblationTabWidget(self.session)
     self.tabWidget.addEventObserver(self.tabWidget.AvailableLayoutsChangedEvent, self.onAvailableLayoutsChanged)
     self.layout.addWidget(self.tabWidget)
     self.tabWidget.hideTabs()
@@ -173,18 +173,18 @@ class ProstateCryoAblationWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget
     for layoutButton in self.layoutButtons:
       layoutButton.enabled = layoutButton.LAYOUT in layouts
 
-class ProstateCryoAblationLogic(ModuleLogicMixin):
+class ProstateAblationLogic(ModuleLogicMixin):
   def __init__(self):
     pass
 
 
-class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
+class ProstateAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
 
-  AvailableLayoutsChangedEvent = ProstateCryoAblationStep.AvailableLayoutsChangedEvent
+  AvailableLayoutsChangedEvent = ProstateAblationStep.AvailableLayoutsChangedEvent
 
-  def __init__(self, prostateCryoAblationSession):
-    super(ProstateCryoAblationTabWidget, self).__init__()
-    self.session = prostateCryoAblationSession
+  def __init__(self, ProstateAblationSession):
+    super(ProstateAblationTabWidget, self).__init__()
+    self.session = ProstateAblationSession
     self._createTabs()
     self.currentChanged.connect(self.onCurrentTabChanged)
     self.onCurrentTabChanged(0)
@@ -230,7 +230,7 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
     self.adjustSize()
 
 
-class ProstateCryoAblationSlicelet(qt.QWidget, ModuleWidgetMixin):
+class ProstateAblationSlicelet(qt.QWidget, ModuleWidgetMixin):
 
   class MainWindow(qt.QWidget):
 
@@ -258,13 +258,13 @@ class ProstateCryoAblationSlicelet(qt.QWidget, ModuleWidgetMixin):
 
     print slicer.dicomDatabase
 
-    self.mainWidget = ProstateCryoAblationSlicelet.MainWindow()
+    self.mainWidget = ProstateAblationSlicelet.MainWindow()
 
     self.setupLayoutWidget()
 
     self.moduleFrame = qt.QWidget()
     self.moduleFrame.setLayout(qt.QVBoxLayout())
-    self.widget = ProstateCryoAblationWidget(self.moduleFrame)
+    self.widget = ProstateAblationWidget(self.moduleFrame)
     self.widget.setup()
 
     # TODO: resize self.widget.parent to minimum possible width
@@ -318,8 +318,8 @@ class ProstateCryoAblationSlicelet(qt.QWidget, ModuleWidgetMixin):
       self.splitter.setSizes([minimumWidth, self.splitter.sizes()[1]-minimumWidth])
 
 
-if __name__ == "ProstateCryoAblationSlicelet":
+if __name__ == "ProstateAblationSlicelet":
   import sys
   print( sys.argv )
 
-  slicelet = ProstateCryoAblationSlicelet()    
+  slicelet = ProstateAblationSlicelet()

@@ -8,7 +8,7 @@ import slicer
 from SlicerDevelopmentToolboxUtils.decorators import logmethod
 from SlicerDevelopmentToolboxUtils.widgets import ExtendedQMessageBox
 
-from constants import ProstateCryoAblationConstants as constants
+from constants import ProstateAblationConstants as constants
 from SlicerDevelopmentToolboxUtils.module.logic import LogicBase
 from SlicerDevelopmentToolboxUtils.module.base import ModuleBase
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin
