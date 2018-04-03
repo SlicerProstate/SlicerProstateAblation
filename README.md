@@ -39,9 +39,9 @@ The user have the option to run the module in a slicelet mode
 Type the following command in a terminal in Linux or Mac OS system.
 ~~~~
 $ cd ${Slicer_execution_path}
-$ ./Slicer --no-main-window --python-script lib/Slicer-x.x/qt-scripted-modules/ProstateCryoAblation.py
+$ ./Slicer --python-code "from ProstateCryoAblation import ProstateCryoAblationSlicelet; slicelet=ProstateCryoAblationSlicelet();" --no-splash --no-main-window
 ~~~~
-![Alt text](Screenshots/Slicelet.png?raw=true "Slicelet")
+![](Screenshots/Slicelet.png)
 For Windows system, see the link for more information [Slicelet Mode](https://www.slicer.org/wiki/Documentation/Nightly/Developers/Slicelets)
 ### Disclaimer
 
@@ -49,7 +49,7 @@ ProstateCryoAblation, same as 3D Slicer, is a research software. **ProstateCryoA
 
 ### Support
 
-Please feel free to contact us for questions, feedback, suggestions, bugs, or you can create issues in the issue tracker: https://github.com/leochan2009/SlicerZframeRegistration/issues
+Please feel free to contact us for questions, feedback, suggestions, bugs, or you can create issues in the issue tracker: https://github.com/SlicerProstate/SlicerCryoAblation/issues
 
 * [Longquan Chen](https://github.com/leochan2009) lchen@bwh.harvard.edu
 

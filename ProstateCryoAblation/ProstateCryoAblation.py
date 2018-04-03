@@ -29,7 +29,7 @@ class ProstateCryoAblation(ScriptedLoadableModule):
     self.parent.title = "ProstateCryoAblation"
     self.parent.categories = ["IGT"]
     self.parent.dependencies = ["SlicerDevelopmentToolbox"]
-    self.parent.contributors = ["Longquan Chen(SPL)", "Junichi Tokuda (SPL)"]
+    self.parent.contributors = ["Longquan Chen(SPL)", "Christian Herz(SPL)", "Junichi Tokuda (SPL)"]
     self.parent.helpText = """ module to support MRI-guided prostate cryoablation.
       See <a href=\"https://www.slicer.org/wiki/Modules:ProstateNav-Documentation-3.6\"> """
     self.parent.acknowledgementText = """Surgical Planning Laboratory, Brigham and Women's Hospital, Harvard
@@ -228,3 +228,98 @@ class ProstateCryoAblationTabWidget(qt.QTabWidget, ModuleWidgetMixin):
     self.widget(index).resize(self.widget(index).minimumSizeHint)
     self.resize(self.minimumSizeHint)
     self.adjustSize()
+
+
+class ProstateCryoAblationSlicelet(qt.QWidget, ModuleWidgetMixin):
+
+  class MainWindow(qt.QWidget):
+
+    def __init__(self, parent=None):
+      qt.QWidget.__init__(self)
+      self.objectName = "qSlicerAppMainWindow"
+      self.setLayout(qt.QVBoxLayout())
+      self.mainFrame = qt.QFrame()
+      self.mainFrame.setLayout(qt.QHBoxLayout())
+
+      self._statusBar = qt.QStatusBar()
+      self._statusBar.setMaximumHeight(35)
+
+      self.layout().addWidget(self.mainFrame)
+      self.layout().addWidget(self._statusBar)
+
+    def statusBar(self):
+      self._statusBar = getattr(self, "_statusBar", None)
+      if not self._statusBar:
+        self._statusBar = qt.QStatusBar()
+      return self._statusBar
+
+  def __init__(self):
+    qt.QWidget.__init__(self)
+
+    print slicer.dicomDatabase
+
+    self.mainWidget = ProstateCryoAblationSlicelet.MainWindow()
+
+    self.setupLayoutWidget()
+
+    self.moduleFrame = qt.QWidget()
+    self.moduleFrame.setLayout(qt.QVBoxLayout())
+    self.widget = ProstateCryoAblationWidget(self.moduleFrame)
+    self.widget.setup()
+
+    # TODO: resize self.widget.parent to minimum possible width
+
+    self.scrollArea = qt.QScrollArea()
+    self.scrollArea.setWidget(self.widget.parent)
+    self.scrollArea.setWidgetResizable(True)
+    self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width())
+
+    self.splitter = qt.QSplitter()
+    self.splitter.setOrientation(qt.Qt.Horizontal)
+    self.splitter.addWidget(self.scrollArea)
+    self.splitter.addWidget(self.layoutWidget)
+    self.splitter.splitterMoved.connect(self.onSplitterMoved)
+
+    self.splitter.setStretchFactor(0,0)
+    self.splitter.setStretchFactor(1,1)
+    self.splitter.handle(1).installEventFilter(self)
+
+    self.mainWidget.mainFrame.layout().addWidget(self.splitter)
+    self.mainWidget.show()
+
+  def setupLayoutWidget(self):
+    self.layoutWidget = qt.QWidget()
+    self.layoutWidget.setLayout(qt.QHBoxLayout())
+    layoutWidget = slicer.qMRMLLayoutWidget()
+    layoutManager = slicer.qSlicerLayoutManager()
+    layoutManager.setMRMLScene(slicer.mrmlScene)
+    layoutManager.setScriptedDisplayableManagerDirectory(slicer.app.slicerHome + "/bin/Python/mrmlDisplayableManager")
+    layoutWidget.setLayoutManager(layoutManager)
+    slicer.app.setLayoutManager(layoutManager)
+    layoutWidget.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+    self.layoutWidget.layout().addWidget(layoutWidget)
+
+  def eventFilter(self, obj, event):
+    if event.type() == qt.QEvent.MouseButtonDblClick:
+      self.onSplitterClick()
+
+  def onSplitterMoved(self, pos, index):
+    vScroll = self.scrollArea.verticalScrollBar()
+    print self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width
+    vScrollbarWidth = 4 if not vScroll.isVisible() else vScroll.width + 4 # TODO: find out, what is 4px wide
+    if self.scrollArea.minimumWidth != self.widget.parent.minimumSizeHint.width() + vScrollbarWidth:
+      self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width() + vScrollbarWidth)
+
+  def onSplitterClick(self):
+    if self.splitter.sizes()[0] > 0:
+      self.splitter.setSizes([0, self.splitter.sizes()[1]])
+    else:
+      minimumWidth = self.widget.parent.minimumSizeHint.width()
+      self.splitter.setSizes([minimumWidth, self.splitter.sizes()[1]-minimumWidth])
+
+
+if __name__ == "ProstateCryoAblationSlicelet":
+  import sys
+  print( sys.argv )
+
+  slicelet = ProstateCryoAblationSlicelet()    
