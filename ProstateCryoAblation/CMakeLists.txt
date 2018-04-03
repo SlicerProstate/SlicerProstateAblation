@@ -12,9 +12,6 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
-  #Resources/zframe/zframe-model.vtk
-  #Resources/zframe/zframe-config.csv
-  #Resources/zframe/ProstateTemplate.csv
   Resources/default.cfg
   )
 
