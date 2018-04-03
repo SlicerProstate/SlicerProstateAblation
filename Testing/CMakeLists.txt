@@ -25,10 +25,10 @@ if(NOT "$ENV{SLICER_EXTENSIONS_DIR}" STREQUAL "")
   endforeach()
 
   slicer_add_python_unittest(
-    SCRIPT SliceTrackerTests.py
+    SCRIPT ProstateCryoAblationTests.py
     SLICER_ARGS
       --additional-module-paths ${ADDITIONAL_MODULE_PATHS}
   )
 else()
-  slicer_add_python_unittest(SCRIPT SliceTrackerTests.py)
+  slicer_add_python_unittest(SCRIPT ProstateCryoAblationTests.py)
 endif()

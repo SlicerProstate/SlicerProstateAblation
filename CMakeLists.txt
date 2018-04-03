@@ -2,22 +2,22 @@ cmake_minimum_required(VERSION 2.8.9)
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_NAME SliceTracker)
-set(EXTENSION_HOMEPAGE "https://github.com/SlicerProstate/SliceTracker")
+set(EXTENSION_NAME ProstateCryoAblation)
+set(EXTENSION_HOMEPAGE "https://github.com/leochan2009/ProstateCryoAblation")
 set(EXTENSION_CATEGORY "IGT")
-set(EXTENSION_CONTRIBUTORS "Christian Herz (SPL), Peter Behringer (SPL), Andrey Fedorov (SPL)")
-set(EXTENSION_DESCRIPTION "This extension provides modules to support in-bore MRI-guided prostate biopsy.")
-set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki/images/b/bb/SliceTracker_Logo_1.0_128x128.png")
-set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/7/78/Slicetracker.gif")
-set(EXTENSION_STATUS "beta")
-set(EXTENSION_DEPENDS "SlicerProstate SlicerDevelopmentToolbox mpReview VolumeClip")
+set(EXTENSION_CONTRIBUTORS "Longquan Chen(SPL)")
+set(EXTENSION_DESCRIPTION "This extension provides support for prostate cryoablation.")
+#set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki")
+#set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki")
+set(EXTENSION_STATUS "alpha")
+set(EXTENSION_DEPENDS "SlicerDevelopmentToolbox, SliceTracker")
 
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
 
-add_subdirectory(SliceTracker)
-add_subdirectory(ZFrameCalibration)
+add_subdirectory(ProstateCryoAblation)
+#add_subdirectory(ZFrameCalibration)
 
 
 #-----------------------------------------------------------------------------
