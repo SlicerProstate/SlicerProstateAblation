@@ -195,12 +195,13 @@ class ProstateAblationStep(ProstateAblationWidgetBase):
 
   def __init__(self, ProstateAblationSession):
     self.viewSettingButtons = []
-    iconSize = qt.QSize(36, 36)
+    self.iconSize = qt.QSize(36, 36)
     self.finishStepIcon = Icons.start
     self.backIcon = Icons.back
-    self.backButton = self.createButton("", icon=self.backIcon, iconSize=iconSize,
+    self.startIcon = Icons.start
+    self.backButton = self.createButton("", icon=self.backIcon, iconSize=self.iconSize,
                                         toolTip="Return to last step")
-    self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=iconSize,
+    self.finishStepButton = self.createButton("", icon=self.finishStepIcon, iconSize=self.iconSize,
                                               toolTip="Confirm the targeting")
     self.parameterNode.SetAttribute("Name", self.NAME)
     super(ProstateAblationStep, self).__init__(ProstateAblationSession)

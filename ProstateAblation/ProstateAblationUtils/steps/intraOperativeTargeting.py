@@ -28,9 +28,17 @@ class ProstateAblationTargetingStep(ProstateAblationStep):
 
   def __init__(self, ProstateAblationSession):
     super(ProstateAblationTargetingStep, self).__init__(ProstateAblationSession)
+    rootSciptModuleDir = os.path.abspath(os.path.join(slicer.modules.segmenteditor.path, os.pardir))
+    iconDir = os.path.join(rootSciptModuleDir, "Resources", "Icons")
+    self.gotoSegmentationIcon = self.createIcon('SegmentEditor.png', iconDir)
+    self.gotoSegmentationButton = self.createButton("", icon=self.gotoSegmentationIcon, iconSize=self.iconSize,
+                                        toolTip="Go To Segmentaion Step")
+    self.gotoTargetingIcon = self.createIcon('Fiducials.png', iconDir)
+    self.gotoTargetingButton = self.createButton("", icon=self.gotoTargetingIcon, iconSize=self.iconSize,
+                                                    toolTip="Go To Targeting Step")
+    self.gotoSegmentationButton.clicked.connect(self.onGoToSegmentButtonClicked)
+    self.gotoTargetingButton.clicked.connect(self.onGoToTargetingButtonClicked)
     self._NeedleType = self.ICESEED
-    self.tabWidget = qt.QTabWidget()
-    self.layout().addWidget(self.tabWidget)
 
   def setup(self):
     super(ProstateAblationTargetingStep, self).setup()
@@ -39,13 +47,26 @@ class ProstateAblationTargetingStep(ProstateAblationStep):
     self.layout().addStretch()
 
   def setupTargetingPlugin(self):
-    #self.targetingPlugin = ProstateAblationTargetsDefinitionPlugin()
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingStartedEvent, self.onTargetingStarted)
     self.session.targetingPlugin.addEventObserver(self.session.targetingPlugin.TargetingFinishedEvent, self.onTargetingFinished)
   
   def onBackButtonClicked(self):
     if self.session.previousStep:
       self.session.previousStep.active = True
+
+  def onGoToSegmentButtonClicked(self):
+    self.session.targetingPlugin.targetingGroupBox.visible = False
+    self.gotoSegmentationButton.visible = False
+    self.session.segmentationEditor.visible = True
+    self.layout().addWidget(self.session.segmentationEditor)
+    self.addSegNavigationButtons()
+
+  def onGoToTargetingButtonClicked(self):
+    self.session.segmentationEditor.visible = False
+    self.gotoTargetingButton.visible = False
+    self.session.targetingPlugin.targetingGroupBox.visible = True
+    self.layout().addWidget(self.session.targetingPlugin.targetingGroupBox)
+    self.addTargetingNavigationButtons()
 
   def onFinishStepButtonClicked(self):
     #To do, deactivate the drawing buttons when finish button clicked
@@ -57,7 +78,7 @@ class ProstateAblationTargetingStep(ProstateAblationStep):
     super(ProstateAblationTargetingStep, self).setupConnections()
     self.backButton.clicked.connect(self.onBackButtonClicked)
     self.finishStepButton.clicked.connect(self.onFinishStepButtonClicked)
-
+    
   def onActivation(self):
     super(ProstateAblationTargetingStep, self).onActivation()
     if not self.session.currentSeriesVolume:
@@ -69,9 +90,15 @@ class ProstateAblationTargetingStep(ProstateAblationStep):
     self.session.targetingPlugin.targetingGroupBox.visible = True
     self.session.targetingPlugin.fiducialsWidget.visible = True
     self.session.targetingPlugin.fiducialsWidget.table.visible = False
-    self.tabWidget.addTab(self.session.targetingPlugin.targetingGroupBox, "")
-    self.tabWidget.addTab(self.session.segmentationEditor, "")
-    self.addNavigationButtons()
+    self.onGoToTargetingButtonClicked()
+
+  def addTargetingNavigationButtons(self):
+    self.gotoSegmentationButton.visible = True
+    self.layout().addWidget(self.createHLayout([self.backButton, self.gotoSegmentationButton, self.finishStepButton]))
+
+  def addSegNavigationButtons(self):
+    self.gotoTargetingButton.visible = True
+    self.layout().addWidget(self.createHLayout([self.backButton, self.gotoTargetingButton, self.finishStepButton]))
 
   def updateAvailableLayouts(self):
     pass
