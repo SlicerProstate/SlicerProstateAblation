@@ -8,6 +8,10 @@ set(MODULE_PYTHON_SCRIPTS
   ProstateAblationUtils/steps/__init__.py
   ProstateAblationUtils/steps/intraOperativeTargeting.py
   ProstateAblationUtils/appConfig.py
+  ProstateAblationUtils/constants.py
+  ProstateAblationUtils/helpers.py
+  ProstateAblationUtils/session.py
+  ProstateAblationUtils/sessionData.py
   )
 
 set(MODULE_PYTHON_RESOURCES
