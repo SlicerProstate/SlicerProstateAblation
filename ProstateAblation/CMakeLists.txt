@@ -1,22 +1,12 @@
 #-----------------------------------------------------------------------------
 set(MODULE_NAME ProstateAblation)
+file(GLOB_RECURSE MODULE_PYTHON_SCRIPTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  *.py
+)
 
-#-----------------------------------------------------------------------------
-set(MODULE_PYTHON_SCRIPTS
-  ${MODULE_NAME}.py
-  ProstateAblationUtils/__init__.py
-  ProstateAblationUtils/steps/__init__.py
-  ProstateAblationUtils/steps/intraOperativeTargeting.py
-  ProstateAblationUtils/appConfig.py
-  ProstateAblationUtils/constants.py
-  ProstateAblationUtils/helpers.py
-  ProstateAblationUtils/session.py
-  ProstateAblationUtils/sessionData.py
-  )
-
-set(MODULE_PYTHON_RESOURCES
-  Resources/default.cfg
-  )
+file(GLOB_RECURSE MODULE_PYTHON_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/${MODULE_NAME}/Resources/*
+)
 
 #-----------------------------------------------------------------------------
 slicerMacroBuildScriptedModule(
