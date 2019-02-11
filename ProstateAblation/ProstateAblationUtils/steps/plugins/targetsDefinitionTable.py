@@ -146,7 +146,8 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     if self.currentGuidanceComputation:
       self.observer = self.currentGuidanceComputation.addEventObserver(vtk.vtkCommand.ModifiedEvent,
                                                                        self.updateTable)
-    self.reset()  
+    self.beginResetModel();
+    self.endResetModel();
 
   @property
   def coverProstateTargetList(self):
@@ -178,14 +179,14 @@ class CustomTargetTableModel(qt.QAbstractTableModel, ModuleLogicMixin):
     self.currentTargetIndex = -1
     self.observer = None
     self.session.addEventObserver(self.session.ZFrameRegistrationSuccessfulEvent, self.onZFrameRegistrationSuccessful)
-  
+
   def flags(self, index):
     if index.column() == self.getColunmNumForHeaderName(self.COLUMN_DISPLAY) \
         or index.column() == self.getColunmNumForHeaderName(self.COLUMN_NEEDLETYPE):
       return qt.Qt.ItemIsEnabled | qt.Qt.ItemIsEditable
     else:
       return qt.Qt.ItemIsEnabled
-  
+
   def headerData(self, col, orientation, role):
     if orientation == qt.Qt.Horizontal and role in [qt.Qt.DisplayRole, qt.Qt.ToolTipRole]:
       return self.headers[col]
@@ -482,13 +483,13 @@ class TargetsDefinitionTable(ProstateAblationPlugin):
     self.targetTable.minimumHeight = 150
     self.targetTable.setStyleSheet("QTableView::item:selected{background-color: #ff7f7f; color: black};")
     self.layout().addWidget(self.targetTable)
-  
+
   def cleanup(self):
     self.onDeactivation()
     self.currentTargets = None
     self.checkBoxList.clear()
     self.comboBoxList.clear()
-  
+
   def setTargetTableSizeConstraints(self):
     if int(qt.qVersion()[0]) < 5 :
       self.targetTable.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
@@ -686,4 +687,3 @@ class TargetsDefinitionTable(ProstateAblationPlugin):
       if interactor is observee:
         return widget
     return None
-

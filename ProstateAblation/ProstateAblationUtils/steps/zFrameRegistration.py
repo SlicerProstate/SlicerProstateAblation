@@ -82,6 +82,7 @@ class ProstateAblationZFrameRegistrationStepLogic(ProstateAblationLogicBase):
     self.zFrameTransform = None
 
     self.showTemplatePath = False
+    self.otsuFilter = sitk.OtsuThresholdImageFilter()
 
     self.tempModelNode = None
     self.pathModelNode = None
@@ -287,7 +288,7 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
 
     super(ProstateAblationZFrameRegistrationStep, self).__init__(ProstateAblationSession)
     self.logic.templateVolume = None
-    
+
   def setupIcons(self):
     self.zFrameIcon = self.createIcon('icon-zframe.png')
     self.needleIcon = self.createIcon('icon-needle.png')
@@ -521,7 +522,11 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
 
         if not self.zFrameRegistrationManualIndexesGroupBox.checked:
           start, center, end = self.logic.getROIMinCenterMaxSliceNumbers(self.coverTemplateROI)
-          otsuOutputVolume = self.logic.applyOtsuFilter(self.zFrameMaskedVolume)
+          inputVolume = sitk.Cast(sitkUtils.PullVolumeFromSlicer(self.zFrameMaskedVolume.GetID()), sitk.sitkInt16)
+          self.logic.otsuFilter.SetInsideValue(0)
+          self.logic.otsuFilter.SetOutsideValue(1)
+          otsuITKVolume = self.logic.otsuFilter.Execute(inputVolume)
+          otsuOutputVolume = sitkUtils.PushToSlicer(otsuITKVolume, "otsuITKVolume", 0, True)
           self.logic.dilateMask(otsuOutputVolume)
           start, end = self.logic.getStartEndWithConnectedComponents(otsuOutputVolume, center)
           self.zFrameRegistrationStartIndex.value = start

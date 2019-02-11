@@ -10,7 +10,7 @@ set(EXTENSION_CONTRIBUTORS "Longquan Chen(SPL), Christian Herz(SPL), Junichi Tok
 set(EXTENSION_DESCRIPTION "This extension provides support for prostate cryoablation.")
 set(EXTENSION_ICONURL "https://raw.githubusercontent.com/SlicerProstate/SlicerProstateAblation/master/SlicerProstateAblation.png")
 set(EXTENSION_SCREENSHOTURLS "https://raw.githubusercontent.com/SlicerProstate/SlicerProstateAblation/master/Screenshots/Slicelet.png")
-set(EXTENSION_DEPENDS "SlicerDevelopmentToolbox SlicerZFrameRegistration")
+set(EXTENSION_DEPENDS "SlicerDevelopmentToolbox ZFrameRegistration")
 
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)
