@@ -275,7 +275,6 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
   LayoutClass = qt.QVBoxLayout
 
   def __init__(self, ProstateAblationSession):
-    self.annotationLogic = slicer.modules.annotations.logic()
     self.zFrameRegistrationClass = getattr(sys.modules[__name__], self.getSetting("ZFrame_Registration_Class_Name"))
     self.roiObserverTag = None
     self.coverTemplateROI = None
@@ -315,7 +314,7 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
 
   def onBackButtonClicked(self):
     self.resetZFrameRegistration()
-    self.annotationLogic.StopPlaceMode(True)
+    slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton").SwitchToViewTransformMode()  # stop place mode
     self.removeZFrameInstructionAnnotation()
     if self.session.previousStep:
       self.session.previousStep.active = True
@@ -461,7 +460,7 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
     @vtk.calldata_type(vtk.VTK_OBJECT)
     def onNodeAdded(caller, event, calldata):
       node = calldata
-      if isinstance(node, slicer.vtkMRMLAnnotationROINode):
+      if isinstance(node, slicer.vtkMRMLMarkupsROINode):
         self.removeROIObserver()
         self.coverTemplateROI = node
         self.runZFrameRegistrationButton.enabled = self.isRegistrationPossible()
@@ -478,11 +477,8 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
       self.roiObserverTag = slicer.mrmlScene.RemoveObserver(self.roiObserverTag)
 
   def activateCreateROIMode(self):
-    mrmlScene = self.annotationLogic.GetMRMLScene()
-    selectionNode = mrmlScene.GetNthNodeByClass(0, "vtkMRMLSelectionNode")
-    selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLAnnotationROINode")
-    # self.annotationLogic.StopPlaceMode(False) # BUG: http://na-mic.org/Mantis/view.php?id=4355
-    self.annotationLogic.StartPlaceMode(False)
+    slicer.mrmlScene.GetNthNodeByClass(0, "vtkMRMLSelectionNode").SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsROINode")
+    slicer.modules.markups.logic().StartPlaceMode(False)
 
   def addZFrameInstructions(self, step=1):
     self.removeZFrameInstructionAnnotation()
@@ -513,7 +509,7 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
     zFrameTemplateVolume = self.logic.templateVolume
     try:
       if self.zFrameRegistrationClass is OpenSourceZFrameRegistration:
-        self.annotationLogic.SetAnnotationLockedUnlocked(self.coverTemplateROI.GetID())
+        self.coverTemplateROI.SetLocked(not self.coverTemplateROI.GetLocked())
         self.zFrameCroppedVolume = self.logic.createCroppedVolume(zFrameTemplateVolume, self.coverTemplateROI)
         self.zFrameLabelVolume = self.logic.createLabelMapFromCroppedVolume(self.zFrameCroppedVolume, "labelmap")
         self.zFrameMaskedVolume = self.logic.createMaskedVolume(zFrameTemplateVolume, self.zFrameLabelVolume,
@@ -557,10 +553,12 @@ class ProstateAblationZFrameRegistrationStep(ProstateAblationStep):
   def onApproveZFrameRegistrationButtonClicked(self):
     self.redSliceNode.SetSliceVisible(False)
     if self.zFrameRegistrationClass is OpenSourceZFrameRegistration:
-      self.annotationLogic.SetAnnotationVisibility(self.coverTemplateROI.GetID())
+      roiDisplayNode = self.coverTemplateROI.GetDisplayNode()
+      roiDisplayNode.SetVisibility(not roiDisplayNode.GetVisibility())
     self.session.approvedCoverTemplate = self.logic.templateVolume
 
   def onRetryZFrameRegistrationButtonClicked(self):
     self.removeZFrameInstructionAnnotation()
-    self.annotationLogic.SetAnnotationVisibility(self.coverTemplateROI.GetID())
+    roiDisplayNode = self.coverTemplateROI.GetDisplayNode()
+    roiDisplayNode.SetVisibility(not roiDisplayNode.GetVisibility())
     self.initiateZFrameRegistrationStep()
